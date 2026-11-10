@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=SVG Demo
+Name[zh_CN]=矢量图应用
+Exec=/usr/bin/true
+Icon=svg-demo
+Terminal=false
+Categories=Utility;

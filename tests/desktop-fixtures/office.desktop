@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Office Writer
+Name[zh_CN]=办公文档编辑器
+Exec=/usr/bin/office %F
+Icon=/work/file-manager-native/tests/desktop-fixtures/icons/office.png
+Terminal=false
+Categories=Office;

@@ -1,0 +1,18 @@
+[Desktop Entry]
+Version=2.7.1
+Type=Application
+Name=文件管理器
+Name[en_US]=File Manager
+GenericName=文件管理器
+GenericName[en_US]=File Manager
+Comment=本地原生的文件管理器
+Comment[en_US]=Native file manager
+Exec=uos-dual-pane-file-manager %f
+Icon=uos-dual-pane-file-manager
+Terminal=false
+StartupNotify=true
+StartupWMClass=uos-dual-pane-file-manager
+Categories=Utility;FileManager;
+MimeType=inode/directory;
+Keywords=file;manager;dual-pane;双栏;文件管理;
+X-Deepin-AppID=uos-dual-pane-file-manager

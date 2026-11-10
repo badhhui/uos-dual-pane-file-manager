@@ -1,0 +1,37 @@
+#!/bin/sh
+set -e
+if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database -q /usr/share/applications || true
+fi
+if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+    gtk-update-icon-cache -q -t /usr/share/icons/hicolor || true
+fi
+# WPS/DDE uses org.freedesktop.FileManager1 -> dde-file-manager --show-item.
+# Install a narrow shim for only the --show-item/--show-items path so that
+# WPS "打开文件所在位置" is handled by this file manager with selection.
+PKG=uos-dual-pane-file-manager
+SHIM=/usr/lib/$PKG/dde-file-manager-shim
+REAL=/usr/bin/dde-file-manager.real
+if [ -f "$SHIM" ] && [ -x /usr/bin/dde-file-manager ] && [ ! -e "$REAL" ]; then
+    dpkg-divert --package "$PKG" --divert "$REAL" --rename /usr/bin/dde-file-manager >/dev/null 2>&1 || true
+fi
+if [ -f "$SHIM" ] && [ -e "$REAL" ]; then
+    install -m755 "$SHIM" /usr/bin/dde-file-manager >/dev/null 2>&1 || true
+fi
+if command -v xdg-mime >/dev/null 2>&1; then
+    xdg-mime default uos-dual-pane-file-manager.desktop inode/directory || true
+    # 为已经存在的人类用户同步目录默认打开方式，避免 WPS 继续打开系统文件管理器。
+    for home in /home/*; do
+        [ -d "$home" ] || continue
+        user="$(stat -c '%U' "$home" 2>/dev/null || true)"
+        [ -n "$user" ] || continue
+        if [ "$user" = "root" ]; then
+            continue
+        fi
+        if command -v runuser >/dev/null 2>&1; then
+            runuser -u "$user" -- env HOME="$home" XDG_CONFIG_HOME="$home/.config" \
+                xdg-mime default uos-dual-pane-file-manager.desktop inode/directory >/dev/null 2>&1 || true
+        fi
+    done
+fi
+exit 0

@@ -1,0 +1,16 @@
+# Build outputs
+build*/
+build-container/
+packaging/.stage/
+
+# Debian package output
+*.deb
+*.ddeb
+dist/
+
+# Local/tool files
+.DS_Store
+*.user
+*.qmake.stash
+CMakeCache.txt
+CMakeFiles/

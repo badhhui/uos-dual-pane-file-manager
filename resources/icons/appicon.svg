@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+<defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#3B82F6"/><stop offset=".55" stop-color="#2168F5"/><stop offset="1" stop-color="#123EB8"/>
+  </linearGradient>
+  <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#FFE39A"/><stop offset="1" stop-color="#F2A93B"/>
+  </linearGradient>
+  <linearGradient id="white" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#EDF4FF"/>
+  </linearGradient>
+  <filter id="shadow" x="-30%" y="-30%" width="160%" height="170%">
+    <feDropShadow dx="0" dy="10" stdDeviation="9" flood-color="#061A4A" flood-opacity=".35"/>
+  </filter>
+</defs>
+<rect x="9" y="9" width="238" height="238" rx="55" fill="url(#bg)"/>
+<rect x="9" y="9" width="238" height="238" rx="55" fill="none" stroke="#FFFFFF" stroke-opacity=".13" stroke-width="2"/>
+<circle cx="198" cy="56" r="52" fill="#FFFFFF" opacity=".055"/>
+
+<g filter="url(#shadow)">
+  <path d="M44 75c0-8 6-14 14-14h51l18 20h78c9 0 16 7 16 16v82c0 9-7 16-16 16H60c-9 0-16-7-16-16V75z" fill="url(#gold)"/>
+  <path d="M44 95c0-9 7-16 16-16h142c9 0 16 7 16 16v68c0 9-7 16-16 16H60c-9 0-16-7-16-16V95z" fill="url(#white)"/>
+  <rect x="64" y="105" width="60" height="58" rx="9" fill="#E7F0FF"/>
+  <rect x="132" y="105" width="60" height="58" rx="9" fill="#FFF5DF"/>
+  <circle cx="73" cy="114" r="3.2" fill="#2F6BFF"/><circle cx="141" cy="114" r="3.2" fill="#E7A32F"/>
+  <rect x="72" y="126" width="43" height="7" rx="3.5" fill="#2F6BFF" opacity="1"/><rect x="72" y="144" width="33" height="7" rx="3.5" fill="#2F6BFF" opacity="1"/><rect x="72" y="162" width="33" height="7" rx="3.5" fill="#2F6BFF" opacity="1"/>
+  <rect x="140" y="126" width="43" height="7" rx="3.5" fill="#D89A2D" opacity="1"/><rect x="140" y="144" width="33" height="7" rx="3.5" fill="#D89A2D" opacity="1"/><rect x="140" y="162" width="33" height="7" rx="3.5" fill="#D89A2D" opacity="1"/>
+</g></svg>

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Firefox
+Name[zh_CN]=火狐浏览器
+Comment=Browse the web
+Exec=/usr/bin/firefox %U
+Icon=/work/file-manager-native/tests/desktop-fixtures/icons/firefox.png
+Terminal=false
+Categories=Network;WebBrowser;

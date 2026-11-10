@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Browser
+Name[zh_CN]=浏览器
+Exec=/usr/bin/htbrowser %U
+Icon=browser
+Terminal=false
+Categories=Network;

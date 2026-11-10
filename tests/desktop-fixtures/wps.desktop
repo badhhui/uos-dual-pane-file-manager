@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=WPS Office
+Name[zh_CN]=WPS 文字
+Exec=/usr/bin/wps %F
+Icon=wps-office
+Terminal=false
+Categories=Office;
