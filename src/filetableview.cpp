@@ -150,9 +150,12 @@ void FileTableView::mousePressEvent(QMouseEvent *event)
         // Rubber-band (marquee) selection: pressing on an unselected row or on
         // empty space bands instead of starting the built-in item drag. Item
         // dragging stays available when pressing an already selected row.
+        // Shift/Ctrl are selection-modifier gestures (range add / toggle) and
+        // keep the native item-view behavior — they never start the band.
         const bool onSelected = index.isValid() && selectionModel()
             && selectionModel()->isSelected(index);
-        if (!onSelected) {
+        const bool plainClick = event->modifiers() == Qt::NoModifier;
+        if (!onSelected && plainClick) {
             setDragEnabled(false);
             m_rubberActive = true;
             m_rubberOrigin = event->pos();

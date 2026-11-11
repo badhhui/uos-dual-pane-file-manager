@@ -24,7 +24,7 @@ int main(int argc, char *argv[])
     QApplication app(argc, argv);
     QApplication::setOrganizationName(QStringLiteral("DualPaneFileManager"));
     QApplication::setApplicationName(QStringLiteral("uos-dual-pane-file-manager"));
-    QApplication::setApplicationVersion(QStringLiteral("2.9.2"));
+    QApplication::setApplicationVersion(QStringLiteral("2.9.3"));
     QApplication::setApplicationDisplayName(QStringLiteral("文件管理器"));
     QApplication::setStyle(QStyleFactory::create(QStringLiteral("Fusion")));
     if (QIcon::themeName().isEmpty()) {

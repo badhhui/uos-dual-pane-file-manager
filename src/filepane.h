@@ -131,6 +131,7 @@ private:
     void startFullTextSearch();
     void runSearch();
     void selectPendingReveal();
+    void stopPendingReveal();
     void toggleFolderDisclosure(const QString &path);
     void hideSearchBar();
 
@@ -156,6 +157,7 @@ private:
     QString m_pendingRevealPath;
     QTimer *m_revealTimer = nullptr;
     int m_revealAttempts = 0;
+    int m_revealStableTicks = 0;
     QLabel *m_countLabel;
     QLabel *m_selectionLabel;
     QString m_path;

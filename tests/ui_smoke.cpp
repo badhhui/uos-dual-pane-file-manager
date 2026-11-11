@@ -56,6 +56,21 @@ bool waitFor(const std::function<bool()> &condition, int timeoutMs)
 
 }
 
+
+// QTest mouse/key events leave QApplication::keyboardModifiers() polluted
+// (e.g. Ctrl after a ctrl-click), which makes QTableView::selectRow interpret
+// the command as Toggle/Clear instead of ClearAndSelect. Select explicitly.
+static void selectRowExplicit(QTableView *view, int row)
+{
+    if (row < 0 || !view->model())
+        return;
+    const QModelIndex index = view->model()->index(row, 0);
+    view->selectionModel()->clearSelection();
+    view->selectionModel()->select(index, QItemSelectionModel::Select
+                                              | QItemSelectionModel::Rows);
+    view->selectionModel()->setCurrentIndex(index, QItemSelectionModel::NoUpdate);
+}
+
 int main(int argc, char **argv)
 {
     qputenv("WENSOUSOU_DB", "/tmp/wss-fixture/index.db");
@@ -175,6 +190,42 @@ int main(int argc, char **argv)
         }
         bandView->clearSelection();
         QTest::qWait(30);
+        // Shift+click extends the selection as a range from the current index.
+        {
+            const QAbstractItemModel *sortModel = bandView->model();
+            bandView->selectionModel()->setCurrentIndex(sortModel->index(0, 0),
+                                                        QItemSelectionModel::ClearAndSelect);
+            QTest::qWait(30);
+            QTest::mouseClick(bandView->viewport(), Qt::LeftButton, Qt::ShiftModifier,
+                              QPoint(30, 60));
+            QTest::qWait(30);
+            const int rangeCount = bandView->selectionModel()->selectedRows(0).size();
+            if (rangeCount < 3) {
+                qCritical() << "shift range selection failed, selected" << rangeCount;
+                return 1;
+            }
+        }
+        // Ctrl+click toggles scattered files without losing previous selections.
+        {
+            QTest::mouseClick(bandView->viewport(), Qt::LeftButton, Qt::ControlModifier,
+                              QPoint(30, 80));
+            QTest::qWait(30);
+            int toggledCount = bandView->selectionModel()->selectedRows(0).size();
+            if (toggledCount < 4) {
+                qCritical() << "ctrl toggle add failed, selected" << toggledCount;
+                return 1;
+            }
+            QTest::mouseClick(bandView->viewport(), Qt::LeftButton, Qt::ControlModifier,
+                              QPoint(30, 80));
+            QTest::qWait(30);
+            toggledCount = bandView->selectionModel()->selectedRows(0).size();
+            if (toggledCount != 3) {
+                qCritical() << "ctrl toggle remove failed, selected" << toggledCount;
+                return 1;
+            }
+        }
+        bandView->clearSelection();
+        QTest::qWait(30);
     }
 
     // Multiple windows: openNewWindow creates an independent, closable window.
@@ -221,11 +272,19 @@ int main(int argc, char **argv)
             qCritical() << "reveal window did not load";
             return 1;
         }
-        QTest::qWait(150);
-        const int selected = revealWindow->leftPane()->tableView()
-            ->selectionModel()->selectedRows(0).size();
-        if (selected < 1) {
-            qCritical() << "reveal window did not select the item";
+        bool sawSelection = false;
+        waitFor([&revealWindow, &sawSelection]() {
+            if (revealWindow->leftPane()->tableView()
+                    ->selectionModel()->selectedRows(0).size() >= 1)
+                sawSelection = true;
+            return false;  // always poll the full window
+            }, 5000);
+        if (!sawSelection) {
+            const DirectoryModel *revealModel = revealWindow->leftPane()->directoryModel();
+            qCritical() << "reveal window did not select the item"
+                        << "rows:" << revealModel->rowCount()
+                        << "loading:" << revealModel->isLoading()
+                        << "dir:" << revealModel->directory();
             return 1;
         }
         revealWindow->close();
@@ -280,7 +339,7 @@ int main(int argc, char **argv)
 
     QTableView *view = window.leftPane()->tableView();
     view->setFocus();
-    view->selectRow(0);
+    selectRowExplicit(view, 0);
     QTest::qWait(120);
 
     QToolButton *bookmarkButton = window.findChild<QToolButton *>(QStringLiteral("BookmarkButton"));
@@ -302,7 +361,7 @@ int main(int argc, char **argv)
     }
 
     view->setFocus();
-    view->selectRow(0);
+    selectRowExplicit(view, 0);
     QTest::keyClick(view, Qt::Key_C, Qt::ControlModifier);
     QTest::qWait(80);
     {
@@ -372,7 +431,7 @@ int main(int argc, char **argv)
         }
     });
     view->setFocus();
-    view->selectRow(window.leftPane()->directoryModel()->rowForPath(leftDir + "/ui-copy-test.txt"));
+    selectRowExplicit(view, window.leftPane()->directoryModel()->rowForPath(leftDir + "/ui-copy-test.txt"));
     QTest::keyClick(view, Qt::Key_C, Qt::ControlModifier);
     QTest::qWait(100);
     rightTargetView->setFocus();
@@ -430,7 +489,7 @@ int main(int argc, char **argv)
         return 1;
     }
     leftView->clearSelection();
-    leftView->selectRow(window.leftPane()->directoryModel()->rowForPath(copySource));
+    selectRowExplicit(leftView, window.leftPane()->directoryModel()->rowForPath(copySource));
     QTest::qWait(150);
     if (window.leftPane()->selectedPaths() != QStringList() << copySource) {
         qCritical() << "copy selection is not exclusive" << window.leftPane()->selectedPaths();
@@ -494,7 +553,7 @@ int main(int argc, char **argv)
         return 1;
     }
     leftView->clearSelection();
-    leftView->selectRow(window.leftPane()->directoryModel()->rowForPath(cutSource));
+    selectRowExplicit(leftView, window.leftPane()->directoryModel()->rowForPath(cutSource));
     QTest::qWait(150);
     if (window.leftPane()->selectedPaths() != QStringList() << cutSource) {
         qCritical() << "cut selection is not exclusive" << window.leftPane()->selectedPaths();
@@ -525,7 +584,7 @@ int main(int argc, char **argv)
         qCritical() << "single pane layout failed";
         return 1;
     }
-    window.leftPane()->tableView()->selectRow(0);
+    selectRowExplicit(window.leftPane()->tableView(), 0);
     if (!window.leftPane()->isActive()) {
         qCritical() << "single pane selection is not active-styled";
         return 1;
@@ -641,7 +700,7 @@ int main(int argc, char **argv)
             qCritical() << "archive compression source missing";
             return 1;
         }
-        window.leftPane()->tableView()->selectRow(sourceRow);
+        selectRowExplicit(window.leftPane()->tableView(), sourceRow);
         QFile::remove(marker);
         window.compressSelection();
         if (!waitFor([&marker]() { return QFileInfo::exists(marker); }, 3000)) {
@@ -712,7 +771,7 @@ int main(int argc, char **argv)
         return 1;
     }
     previewView->setFocus();
-    previewView->selectRow(previewRow);
+    selectRowExplicit(previewView, previewRow);
     QTest::qWait(100);
     bool previewShown = false;
     QTimer::singleShot(250, [&previewShown]() {
@@ -969,7 +1028,7 @@ int main(int argc, char **argv)
     }
 
     QTest::qWait(300);
-    window.leftPane()->tableView()->selectRow(0);
+    selectRowExplicit(window.leftPane()->tableView(), 0);
     QTest::qWait(150);
     const QString shot = QStringLiteral("/work/file-manager-native/screenshots/native-selected.png");
     window.grab().save(shot, "PNG");

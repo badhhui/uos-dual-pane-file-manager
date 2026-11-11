@@ -335,6 +335,11 @@ void FilePane::buildUi()
     m_revealTimer->setSingleShot(true);
     m_revealTimer->setInterval(120);
     connect(m_revealTimer, &QTimer::timeout, this, &FilePane::selectPendingReveal);
+    // Any user interaction with the view cancels a pending/active reveal so it
+    // never fights the user's own selection changes.
+    connect(m_view, &QAbstractItemView::pressed, this, [this]() {
+        stopPendingReveal();
+    });
 
     m_searchDebounce = new QTimer(this);
     m_searchDebounce->setSingleShot(true);
@@ -637,6 +642,15 @@ void FilePane::revealPath(const QString &path)
     }
 }
 
+void FilePane::stopPendingReveal()
+{
+    m_pendingRevealPath.clear();
+    m_revealAttempts = 0;
+    m_revealStableTicks = 0;
+    if (m_revealTimer)
+        m_revealTimer->stop();
+}
+
 void FilePane::selectPendingReveal()
 {
     if (m_pendingRevealPath.isEmpty())
@@ -644,6 +658,8 @@ void FilePane::selectPendingReveal()
     if (m_model->isLoading()) {
         if (m_revealAttempts++ < 40 && m_revealTimer)
             m_revealTimer->start();
+        else
+            stopPendingReveal();
         return;
     }
     const int row = m_model->rowForPath(m_pendingRevealPath);
@@ -651,19 +667,30 @@ void FilePane::selectPendingReveal()
         if (m_revealAttempts++ < 40 && m_revealTimer)
             m_revealTimer->start();
         else
-            m_pendingRevealPath.clear();
+            stopPendingReveal();
         return;
     }
     const QModelIndex index = m_model->index(row, 0);
-    m_view->selectionModel()->clearSelection();
-    m_view->selectRow(row);
-    m_view->setCurrentIndex(index);
-    m_view->scrollTo(index, QAbstractItemView::PositionAtCenter);
+    if (!m_view->selectionModel()->isSelected(index)) {
+        // (Re-)assert the reveal selection: a directory reload that raced the
+        // reveal resets the model and clears the selection, so keep applying
+        // it until it holds steady.
+        m_view->selectionModel()->clearSelection();
+        m_view->selectRow(row);
+        m_view->setCurrentIndex(index);
+        m_view->scrollTo(index, QAbstractItemView::PositionAtCenter);
+        m_view->selectionModel()->select(index, QItemSelectionModel::Select
+                                                    | QItemSelectionModel::Rows);
+        m_revealStableTicks = 0;
+    } else if (++m_revealStableTicks >= 15) {
+        // Selection has held steady for ~1.8s — stop re-asserting.
+        stopPendingReveal();
+        m_view->setFocus();
+        return;
+    }
     m_view->setFocus();
-    m_pendingRevealPath.clear();
-    m_revealAttempts = 0;
     if (m_revealTimer)
-        m_revealTimer->stop();
+        m_revealTimer->start();
 }
 
 void FilePane::setMountEjecting(const QString &mountPath)
@@ -1043,6 +1070,10 @@ void FilePane::onDirectoryLoaded(const QString &path)
         updateFooter();
         updateBreadcrumbs();
         restoreRefreshState();
+        // A load completion resets the model; re-assert a pending reveal that
+        // raced the reset so the revealed file stays selected.
+        if (!m_pendingRevealPath.isEmpty())
+            selectPendingReveal();
         emit navigationChanged(this);
         if (!m_searchFilter.isEmpty() && m_model->rowCount() == 0)
             emit statusMessage(QStringLiteral("没有找到匹配的文件"));
