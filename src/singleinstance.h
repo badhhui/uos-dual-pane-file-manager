@@ -15,16 +15,22 @@ public:
     ~SingleInstance() override;
 
     bool isPrimary() const;
-    bool sendMessage(const QString &path);
+    // Forward a directory to the primary instance. With newWindow the primary
+    // opens an additional window instead of revealing inside the current one.
+    bool sendMessage(const QString &path, bool newWindow = false);
     void setRevealHandler(const std::function<void(const QString &)> &handler);
+    void setNewWindowHandler(const std::function<void(const QString &)> &handler);
 
 private:
     void handleConnection();
-    void deliver(const QString &path);
+    void deliverReveal(const QString &path);
+    void deliverNewWindow(const QString &path);
 
     bool m_primary = false;
     QString m_serverName;
     QLocalServer *m_server = nullptr;
-    QStringList m_pending;
-    std::function<void(const QString &)> m_handler;
+    QStringList m_pendingReveal;
+    QStringList m_pendingNewWindow;
+    std::function<void(const QString &)> m_revealHandler;
+    std::function<void(const QString &)> m_newWindowHandler;
 };

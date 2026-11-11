@@ -15,6 +15,8 @@
 #include <QMimeData>
 #include <QPainter>
 #include <QPixmap>
+#include <QRubberBand>
+#include <QScrollBar>
 #include <QUrl>
 
 FileTableView::FileTableView(QWidget *parent)
@@ -145,8 +147,71 @@ void FileTableView::mousePressEvent(QMouseEvent *event)
                 }
             }
         }
+        // Rubber-band (marquee) selection: pressing on an unselected row or on
+        // empty space bands instead of starting the built-in item drag. Item
+        // dragging stays available when pressing an already selected row.
+        const bool onSelected = index.isValid() && selectionModel()
+            && selectionModel()->isSelected(index);
+        if (!onSelected) {
+            setDragEnabled(false);
+            m_rubberActive = true;
+            m_rubberOrigin = event->pos();
+            if (!m_rubberBand)
+                m_rubberBand = new QRubberBand(QRubberBand::Rectangle, viewport());
+            m_rubberBand->setGeometry(QRect(m_rubberOrigin, QSize()));
+            m_rubberBand->show();
+        }
     }
     QTableView::mousePressEvent(event);
+}
+
+void FileTableView::mouseMoveEvent(QMouseEvent *event)
+{
+    if (!m_rubberActive || !m_rubberBand) {
+        QTableView::mouseMoveEvent(event);
+        return;
+    }
+    const QPoint pos = event->pos();
+    // Auto-scroll when dragging near the viewport edges.
+    QScrollBar *scroll = verticalScrollBar();
+    constexpr int kEdge = 24;
+    if (pos.y() < kEdge)
+        scroll->setValue(scroll->value() - (kEdge - pos.y()) / 2);
+    else if (pos.y() > viewport()->height() - kEdge)
+        scroll->setValue(scroll->value() + (pos.y() - (viewport()->height() - kEdge)) / 2);
+
+    m_rubberBand->setGeometry(QRect(m_rubberOrigin, pos).normalized());
+
+    // Select every row intersecting the band. Row geometry helpers work for
+    // scrolled-out rows too, so the selection stays stable while auto-scrolling.
+    const QRect band = m_rubberBand->geometry();
+    const QAbstractItemModel *tableModel = model();
+    QItemSelection selection;
+    for (int row = 0; row < tableModel->rowCount(); ++row) {
+        const int y = rowViewportPosition(row);
+        const int height = rowHeight(row);
+        if (height <= 0)
+            continue;
+        if (y + height < band.top() || y > band.bottom())
+            continue;
+        selection.select(tableModel->index(row, 0),
+                         tableModel->index(row, tableModel->columnCount() - 1));
+    }
+    if (selectionModel())
+        selectionModel()->select(selection, QItemSelectionModel::ClearAndSelect
+                                                 | QItemSelectionModel::Rows);
+    event->accept();
+}
+
+void FileTableView::mouseReleaseEvent(QMouseEvent *event)
+{
+    if (m_rubberActive) {
+        m_rubberActive = false;
+        if (m_rubberBand)
+            m_rubberBand->hide();
+        setDragEnabled(true);
+    }
+    QTableView::mouseReleaseEvent(event);
 }
 
 void FileTableView::keyPressEvent(QKeyEvent *event)

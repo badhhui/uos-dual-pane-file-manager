@@ -58,22 +58,35 @@ bool SingleInstance::isPrimary() const
 
 void SingleInstance::setRevealHandler(const std::function<void(const QString &)> &handler)
 {
-    m_handler = handler;
-    const QStringList pending = m_pending;
-    m_pending.clear();
+    m_revealHandler = handler;
+    const QStringList pending = m_pendingReveal;
+    m_pendingReveal.clear();
     for (const QString &path : pending)
-        deliver(path);
+        deliverReveal(path);
 }
 
-bool SingleInstance::sendMessage(const QString &path)
+void SingleInstance::setNewWindowHandler(const std::function<void(const QString &)> &handler)
+{
+    m_newWindowHandler = handler;
+    const QStringList pending = m_pendingNewWindow;
+    m_pendingNewWindow.clear();
+    for (const QString &path : pending)
+        deliverNewWindow(path);
+}
+
+bool SingleInstance::sendMessage(const QString &path, bool newWindow)
 {
     QLocalSocket socket;
     socket.connectToServer(m_serverName);
     if (!socket.waitForConnected(800))
         return false;
     QJsonObject object;
-    object.insert(QStringLiteral("action"), path.isEmpty() ? QStringLiteral("activate")
-                                                          : QStringLiteral("reveal"));
+    QString action;
+    if (path.isEmpty())
+        action = QStringLiteral("activate");
+    else
+        action = newWindow ? QStringLiteral("open") : QStringLiteral("reveal");
+    object.insert(QStringLiteral("action"), action);
     object.insert(QStringLiteral("path"), path);
     QByteArray payload = QJsonDocument(object).toJson(QJsonDocument::Compact);
     payload.append('\n');
@@ -97,21 +110,33 @@ void SingleInstance::handleConnection()
             const QJsonObject object = document.object();
             const QString action = object.value(QStringLiteral("action")).toString();
             const QString path = object.value(QStringLiteral("path")).toString();
-            if (action == QStringLiteral("reveal") && !path.isEmpty())
-                deliver(path);
+            if (action == QStringLiteral("open") && !path.isEmpty())
+                deliverNewWindow(path);
+            else if (action == QStringLiteral("reveal") && !path.isEmpty())
+                deliverReveal(path);
             else
-                deliver(QString());
+                deliverReveal(QString());
         });
         connect(socket, &QLocalSocket::disconnected, socket, &QObject::deleteLater);
     }
 }
 
-void SingleInstance::deliver(const QString &path)
+void SingleInstance::deliverReveal(const QString &path)
 {
-    if (m_handler) {
-        m_handler(path);
+    if (m_revealHandler) {
+        m_revealHandler(path);
     } else {
-        if (!m_pending.contains(path))
-            m_pending.append(path);
+        if (!m_pendingReveal.contains(path))
+            m_pendingReveal.append(path);
+    }
+}
+
+void SingleInstance::deliverNewWindow(const QString &path)
+{
+    if (m_newWindowHandler) {
+        m_newWindowHandler(path);
+    } else {
+        if (!m_pendingNewWindow.contains(path))
+            m_pendingNewWindow.append(path);
     }
 }

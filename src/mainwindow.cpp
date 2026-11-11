@@ -53,6 +53,7 @@
 #include <QToolButton>
 #include <QUrl>
 #include <QVBoxLayout>
+#include <QWindow>
 #include <QSet>
 
 namespace {
@@ -401,6 +402,12 @@ void MainWindow::buildToolbar()
     connect(m_terminalButton, &QToolButton::clicked, this, [this]() {
         if (m_active)
             openTerminalAt(m_active->currentPath());
+    });
+
+    m_newWindowButton = addTool(QStringLiteral("external"), QStringLiteral("新窗口 (Ctrl+N)"));
+    m_newWindowButton->setObjectName(QStringLiteral("NewWindowButton"));
+    connect(m_newWindowButton, &QToolButton::clicked, this, [this]() {
+        openNewWindow(m_active ? m_active->currentPath() : QString());
     });
 
     m_viewModeButton = new QToolButton(m_toolbar);
@@ -999,6 +1006,7 @@ void MainWindow::buildShortcuts()
     addShortcut(QKeySequence(QStringLiteral("Ctrl+L")), [this]() { openLocationDialog(); });
     addShortcut(QKeySequence(QStringLiteral("Ctrl+D")), [this]() { toggleBookmark(); });
     addShortcut(QKeySequence(QStringLiteral("Ctrl+H")), [this]() { toggleHiddenFiles(); });
+    addShortcut(QKeySequence(QStringLiteral("Ctrl+N")), [this]() { openNewWindow(); });
     addShortcut(QKeySequence(Qt::ALT | Qt::Key_Left), [this]() { navigateBack(); });
     addShortcut(QKeySequence(Qt::ALT | Qt::Key_Right), [this]() { navigateForward(); });
     addShortcut(QKeySequence(Qt::ALT | Qt::Key_Up), [this]() { navigateUp(); });
@@ -1171,6 +1179,18 @@ void MainWindow::updateViewModeButton()
         Theme::instance().textSecondary()));
     m_viewModeButton->setToolTip(m_singlePane ? QStringLiteral("切换为双栏")
                                              : QStringLiteral("切换为单栏"));
+}
+
+MainWindow *MainWindow::openNewWindow(const QString &startLeft, const QString &startRight)
+{
+    auto *window = new MainWindow(startLeft, startRight);
+    window->setAttribute(Qt::WA_DeleteOnClose);
+    window->show();
+    if (window->windowHandle())
+        window->windowHandle()->setIcon(IconProvider::instance().appIcon());
+    window->raise();
+    window->activateWindow();
+    return window;
 }
 
 void MainWindow::revealPath(const QString &path)

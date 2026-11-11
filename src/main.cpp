@@ -24,7 +24,7 @@ int main(int argc, char *argv[])
     QApplication app(argc, argv);
     QApplication::setOrganizationName(QStringLiteral("DualPaneFileManager"));
     QApplication::setApplicationName(QStringLiteral("uos-dual-pane-file-manager"));
-    QApplication::setApplicationVersion(QStringLiteral("2.8.1"));
+    QApplication::setApplicationVersion(QStringLiteral("2.9.0"));
     QApplication::setApplicationDisplayName(QStringLiteral("文件管理器"));
     QApplication::setStyle(QStyleFactory::create(QStringLiteral("Fusion")));
     if (QIcon::themeName().isEmpty()) {
@@ -98,12 +98,17 @@ int main(int argc, char *argv[])
         singleInstance.reset(new SingleInstance());
         if (!singleInstance->isPrimary()) {
             QString target = reveal;
+            bool newWindow = false;
             if (target.isEmpty() && !positional.isEmpty()) {
                 const QString first = localPath(positional.first());
-                if (QFileInfo(first).isDir())
+                if (QFileInfo(first).isDir()) {
                     target = QFileInfo(first).absoluteFilePath();
+                    // A plain second launch opens an additional window in the
+                    // primary instance; --reveal keeps the reveal semantics.
+                    newWindow = true;
+                }
             }
-            if (singleInstance->sendMessage(target))
+            if (singleInstance->sendMessage(target, newWindow))
                 return 0;
             singleInstance.reset();
         }
@@ -113,6 +118,9 @@ int main(int argc, char *argv[])
     if (singleInstance) {
         singleInstance->setRevealHandler([&window](const QString &path) {
             window.revealPath(path);
+        });
+        singleInstance->setNewWindowHandler([](const QString &path) {
+            MainWindow::openNewWindow(path);
         });
     }
     if (parser.isSet(darkOption))

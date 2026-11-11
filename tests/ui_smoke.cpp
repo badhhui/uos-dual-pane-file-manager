@@ -133,6 +133,79 @@ int main(int argc, char **argv)
         }
     }
 
+    // Rubber-band selection: press on an unselected row, drag down, release —
+    // multiple rows must end up selected.
+    {
+        for (int i = 0; i < 3; ++i) {
+            QFile bandFile(leftDir + QStringLiteral("/zz-band-fixture-%1.txt").arg(i));
+            if (!bandFile.open(QIODevice::WriteOnly) || bandFile.write("x\n") != 2) {
+                qCritical() << "cannot create band fixture" << i;
+                return 1;
+            }
+            bandFile.close();
+        }
+        QTableView *bandView = window.leftPane()->tableView();
+        if (!waitFor([&window]() {
+                return window.leftPane()->directoryModel()->rowCount() >= 4;
+            }, 5000)) {
+            qCritical() << "band fixtures did not appear";
+            return 1;
+        }
+        bandView->clearSelection();
+        QTest::qWait(50);
+        QTest::mousePress(bandView->viewport(), Qt::LeftButton, Qt::NoModifier,
+                          QPoint(30, 10));
+        QTest::qWait(30);
+        // QTest::mouseMove goes through QCursor::setPos which does not deliver
+        // move events on the offscreen platform; send one directly instead.
+        QMouseEvent bandMove(QEvent::MouseMove, QPoint(30, 70),
+                             bandView->viewport()->mapToGlobal(QPoint(30, 70)),
+                             Qt::NoButton, Qt::LeftButton, Qt::NoModifier);
+        QApplication::sendEvent(bandView->viewport(), &bandMove);
+        QTest::qWait(30);
+        QTest::mouseRelease(bandView->viewport(), Qt::LeftButton, Qt::NoModifier,
+                            QPoint(30, 70));
+        QTest::qWait(50);
+        const int bandCount = bandView->selectionModel()->selectedRows(0).size();
+        if (bandCount < 2) {
+            qCritical() << "rubber band selection failed, selected" << bandCount;
+            return 1;
+        }
+        bandView->clearSelection();
+        QTest::qWait(30);
+    }
+
+    // Multiple windows: openNewWindow creates an independent, closable window.
+    {
+        MainWindow *extra = MainWindow::openNewWindow(leftDir);
+        if (!extra->isVisible()) {
+            qCritical() << "new window not visible";
+            return 1;
+        }
+        if (!waitFor([&extra]() {
+                return extra->leftPane()->directoryModel()->rowCount() > 0;
+            }, 5000)) {
+            qCritical() << "new window did not load";
+            return 1;
+        }
+        if (extra->leftPane()->directoryModel()->rowForPath(leftDir + "/ui-copy-test.txt") < 0) {
+            qCritical() << "new window wrong directory";
+            return 1;
+        }
+        extra->close();
+        QTest::qWait(50);
+        if (extra->isVisible()) {
+            qCritical() << "new window did not close";
+            return 1;
+        }
+        // Offscreen windows do not auto-activate a next window on close; give
+        // focus back to the main window so later keyboard tests keep working.
+        window.activateWindow();
+        window.setFocus();
+        window.leftPane()->tableView()->setFocus();
+        QTest::qWait(80);
+    }
+
     const QString externalPath = leftDir + "/watched-external.txt";
     {
         QFile external(externalPath);

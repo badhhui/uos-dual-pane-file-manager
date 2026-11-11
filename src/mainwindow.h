@@ -42,6 +42,9 @@ public:
 
     void openPaths(const QString &leftPath, const QString &rightPath);
     void setDarkMode(bool dark);
+    // Creates an additional heap-allocated window (WA_DeleteOnClose) and shows it.
+    static MainWindow *openNewWindow(const QString &startLeft = QString(),
+                                     const QString &startRight = QString());
     FilePane *leftPane() const;
     FilePane *rightPane() const;
     FilePane *activePane() const;
@@ -140,6 +143,7 @@ private:
     QToolButton *m_viewModeButton = nullptr;
     QToolButton *m_bookmarkButton = nullptr;
     QToolButton *m_hiddenButton = nullptr;
+    QToolButton *m_newWindowButton = nullptr;
     QToolButton *m_searchButton = nullptr;
     QTimer *m_deviceTimer = nullptr;
     EjectTask *m_ejectTask = nullptr;
