@@ -205,6 +205,34 @@ int main(int argc, char **argv)
         window.leftPane()->tableView()->setFocus();
         QTest::qWait(80);
     }
+    {
+        // WPS-style "show item" flow: a new window opens and selects the file.
+        const QString revealItem = leftDir + QStringLiteral("/ui-copy-test.txt");
+        MainWindow *revealWindow = MainWindow::openNewWindow(leftDir, QString(), revealItem);
+        if (!revealWindow->isVisible()) {
+            qCritical() << "reveal window not visible";
+            return 1;
+        }
+        if (!waitFor([&revealWindow]() {
+                return revealWindow->leftPane()->directoryModel()->rowCount() > 0;
+            }, 5000)) {
+            qCritical() << "reveal window did not load";
+            return 1;
+        }
+        QTest::qWait(150);
+        const int selected = revealWindow->leftPane()->tableView()
+            ->selectionModel()->selectedRows(0).size();
+        if (selected < 1) {
+            qCritical() << "reveal window did not select the item";
+            return 1;
+        }
+        revealWindow->close();
+        QTest::qWait(80);
+        window.activateWindow();
+        window.setFocus();
+        window.leftPane()->tableView()->setFocus();
+        QTest::qWait(80);
+    }
 
     const QString externalPath = leftDir + "/watched-external.txt";
     {

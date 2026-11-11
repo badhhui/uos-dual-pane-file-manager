@@ -42,9 +42,11 @@ public:
 
     void openPaths(const QString &leftPath, const QString &rightPath);
     void setDarkMode(bool dark);
-    // Creates an additional heap-allocated window (WA_DeleteOnClose) and shows it.
+    // Creates an additional heap-allocated window (WA_DeleteOnClose) and shows
+    // it. With a non-empty revealItem, that file is selected after opening.
     static MainWindow *openNewWindow(const QString &startLeft = QString(),
-                                     const QString &startRight = QString());
+                                     const QString &startRight = QString(),
+                                     const QString &revealItem = QString());
     FilePane *leftPane() const;
     FilePane *rightPane() const;
     FilePane *activePane() const;

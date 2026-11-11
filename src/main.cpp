@@ -24,7 +24,7 @@ int main(int argc, char *argv[])
     QApplication app(argc, argv);
     QApplication::setOrganizationName(QStringLiteral("DualPaneFileManager"));
     QApplication::setApplicationName(QStringLiteral("uos-dual-pane-file-manager"));
-    QApplication::setApplicationVersion(QStringLiteral("2.9.0"));
+    QApplication::setApplicationVersion(QStringLiteral("2.9.1"));
     QApplication::setApplicationDisplayName(QStringLiteral("文件管理器"));
     QApplication::setStyle(QStyleFactory::create(QStringLiteral("Fusion")));
     if (QIcon::themeName().isEmpty()) {
@@ -97,18 +97,29 @@ int main(int argc, char *argv[])
     if (!parser.isSet(screenshotOption)) {
         singleInstance.reset(new SingleInstance());
         if (!singleInstance->isPrimary()) {
-            QString target = reveal;
-            bool newWindow = false;
-            if (target.isEmpty() && !positional.isEmpty()) {
+            // Deepin/UOS window logic: every secondary launch opens an
+            // additional window in the primary process. A file argument or
+            // --reveal selects that file inside the new window.
+            QString openDir;
+            QString openRight;
+            QString openItem;
+            if (!reveal.isEmpty()) {
+                openItem = reveal;
+            } else if (!positional.isEmpty()) {
                 const QString first = localPath(positional.first());
-                if (QFileInfo(first).isDir()) {
-                    target = QFileInfo(first).absoluteFilePath();
-                    // A plain second launch opens an additional window in the
-                    // primary instance; --reveal keeps the reveal semantics.
-                    newWindow = true;
+                const QFileInfo info(first);
+                if (info.isDir())
+                    openDir = info.absoluteFilePath();
+                else
+                    openItem = info.absoluteFilePath();
+                if (positional.size() > 1) {
+                    const QString second = localPath(positional.at(1));
+                    const QFileInfo rightInfo(second);
+                    if (rightInfo.isDir())
+                        openRight = rightInfo.absoluteFilePath();
                 }
             }
-            if (singleInstance->sendMessage(target, newWindow))
+            if (singleInstance->sendOpenWindow(openDir, openItem, openRight))
                 return 0;
             singleInstance.reset();
         }
@@ -116,12 +127,10 @@ int main(int argc, char *argv[])
 
     MainWindow window(left, right);
     if (singleInstance) {
-        singleInstance->setRevealHandler([&window](const QString &path) {
-            window.revealPath(path);
-        });
-        singleInstance->setNewWindowHandler([](const QString &path) {
-            MainWindow::openNewWindow(path);
-        });
+        singleInstance->setNewWindowHandler(
+            [](const QString &dir, const QString &right, const QString &item) {
+                MainWindow::openNewWindow(dir, right, item);
+            });
     }
     if (parser.isSet(darkOption))
         window.setDarkMode(true);

@@ -1181,15 +1181,24 @@ void MainWindow::updateViewModeButton()
                                              : QStringLiteral("切换为单栏"));
 }
 
-MainWindow *MainWindow::openNewWindow(const QString &startLeft, const QString &startRight)
+MainWindow *MainWindow::openNewWindow(const QString &startLeft, const QString &startRight,
+                                      const QString &revealItem)
 {
-    auto *window = new MainWindow(startLeft, startRight);
+    QString left = startLeft;
+    if (left.isEmpty() && !revealItem.isEmpty()
+        && QFileInfo(revealItem).isFile())
+        left = QFileInfo(revealItem).absolutePath();
+    auto *window = new MainWindow(left, startRight);
     window->setAttribute(Qt::WA_DeleteOnClose);
     window->show();
     if (window->windowHandle())
         window->windowHandle()->setIcon(IconProvider::instance().appIcon());
     window->raise();
     window->activateWindow();
+    if (!revealItem.isEmpty()) {
+        const QString target = revealItem;
+        QTimer::singleShot(0, window, [window, target]() { window->revealPath(target); });
+    }
     return window;
 }
 
