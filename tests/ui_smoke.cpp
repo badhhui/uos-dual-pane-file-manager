@@ -163,8 +163,10 @@ int main(int argc, char **argv)
                              Qt::NoButton, Qt::LeftButton, Qt::NoModifier);
         QApplication::sendEvent(bandView->viewport(), &bandMove);
         QTest::qWait(30);
+        // Release OUTSIDE any row (regression: base release used to clear the
+        // band selection when the release index was invalid).
         QTest::mouseRelease(bandView->viewport(), Qt::LeftButton, Qt::NoModifier,
-                            QPoint(30, 70));
+                            QPoint(30, 500));
         QTest::qWait(50);
         const int bandCount = bandView->selectionModel()->selectedRows(0).size();
         if (bandCount < 2) {

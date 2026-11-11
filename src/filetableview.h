@@ -31,6 +31,7 @@ protected:
 
 private:
     static QStringList localFilePaths(const QMimeData *mimeData);
+    void applyRubberBandSelection();
     bool m_dropActive = false;
     // Rubber-band (marquee) selection state. Pressing on an unselected row or
     // empty space starts a band; pressing on an already selected row keeps the

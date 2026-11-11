@@ -1093,12 +1093,36 @@ void MainWindow::updateActionStates()
 
 void MainWindow::updateWindowTitle()
 {
-    if (!m_active || m_active->currentPath().isEmpty()) {
+    const QString path = m_active ? m_active->currentPath() : QString();
+    if (path.isEmpty()) {
         setWindowTitle(QStringLiteral("文件管理器"));
         return;
     }
-    setWindowTitle(QStringLiteral("%1 — 文件管理器")
-                       .arg(compactPath(m_active->currentPath(), 3)));
+    // Deepin/UOS style: windows are titled after the folder they display, so
+    // different folders never share a title (the window manager otherwise
+    // appends "<2>"-style suffixes to identically titled windows).
+    const QString home = QDir::homePath();
+    QString name;
+    if (path == home)
+        name = QStringLiteral("主目录");
+    else if (path == home + QStringLiteral("/Desktop"))
+        name = QStringLiteral("桌面");
+    else if (path == home + QStringLiteral("/Documents"))
+        name = QStringLiteral("文档");
+    else if (path == home + QStringLiteral("/Downloads"))
+        name = QStringLiteral("下载");
+    else if (path == home + QStringLiteral("/Music"))
+        name = QStringLiteral("音乐");
+    else if (path == home + QStringLiteral("/Pictures"))
+        name = QStringLiteral("图片");
+    else if (path == home + QStringLiteral("/Videos"))
+        name = QStringLiteral("视频");
+    else {
+        name = QFileInfo(path).fileName();
+        if (name.isEmpty())
+            name = path;  // filesystem root
+    }
+    setWindowTitle(QStringLiteral("%1 — 文件管理器").arg(name));
 }
 
 void MainWindow::updateToolbarIcons()

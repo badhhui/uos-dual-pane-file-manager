@@ -181,9 +181,16 @@ void FileTableView::mouseMoveEvent(QMouseEvent *event)
         scroll->setValue(scroll->value() + (pos.y() - (viewport()->height() - kEdge)) / 2);
 
     m_rubberBand->setGeometry(QRect(m_rubberOrigin, pos).normalized());
+    applyRubberBandSelection();
+    event->accept();
+}
 
-    // Select every row intersecting the band. Row geometry helpers work for
-    // scrolled-out rows too, so the selection stays stable while auto-scrolling.
+// Selects every row intersecting the current band. Row geometry helpers work
+// for scrolled-out rows too, so the selection stays stable while scrolling.
+void FileTableView::applyRubberBandSelection()
+{
+    if (!m_rubberBand || !selectionModel() || !model())
+        return;
     const QRect band = m_rubberBand->geometry();
     const QAbstractItemModel *tableModel = model();
     QItemSelection selection;
@@ -197,21 +204,26 @@ void FileTableView::mouseMoveEvent(QMouseEvent *event)
         selection.select(tableModel->index(row, 0),
                          tableModel->index(row, tableModel->columnCount() - 1));
     }
-    if (selectionModel())
-        selectionModel()->select(selection, QItemSelectionModel::ClearAndSelect
-                                                 | QItemSelectionModel::Rows);
-    event->accept();
+    selectionModel()->select(selection, QItemSelectionModel::ClearAndSelect
+                                             | QItemSelectionModel::Rows);
 }
 
 void FileTableView::mouseReleaseEvent(QMouseEvent *event)
 {
-    if (m_rubberActive) {
+    const bool finishingBand = m_rubberActive;
+    if (finishingBand) {
         m_rubberActive = false;
         if (m_rubberBand)
             m_rubberBand->hide();
         setDragEnabled(true);
     }
     QTableView::mouseReleaseEvent(event);
+    if (finishingBand) {
+        // QAbstractItemView::mouseReleaseEvent re-selects indexAt(release pos)
+        // when the press started on empty space; releasing outside any row
+        // would therefore clear the band selection. Re-apply it.
+        applyRubberBandSelection();
+    }
 }
 
 void FileTableView::keyPressEvent(QKeyEvent *event)
