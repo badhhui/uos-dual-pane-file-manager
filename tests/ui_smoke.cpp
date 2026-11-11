@@ -566,7 +566,7 @@ int main(int argc, char **argv)
         navPreview.close();
     }
 
-    // Spacebar preview must open a modal preview and close cleanly.
+    // Spacebar preview must open a non-modal preview and close cleanly.
     QTableView *previewView = window.leftPane()->tableView();
     const int previewRow = window.leftPane()->directoryModel()->rowForPath(leftDir + "/ui-copy-test.txt");
     if (previewRow < 0) {
@@ -587,7 +587,7 @@ int main(int argc, char **argv)
         }
     });
     QTest::keyClick(previewView, Qt::Key_Space);
-    QTest::qWait(150);
+    QTest::qWait(400);
     if (!previewShown) {
         qCritical() << "space preview did not open";
         return 1;
@@ -729,6 +729,56 @@ int main(int argc, char **argv)
             return 1;
         }
         archivePreview.close();
+    }
+    {
+        // CSV files should render as a table with decoded (UTF-8) content.
+        PreviewDialog csvPreview(fixtures + "/data.csv");
+        csvPreview.show();
+        QTest::qWait(150);
+        QTableWidget *csvTable = csvPreview.findChild<QTableWidget *>(
+            QStringLiteral("PreviewSheet"));
+        if (!csvTable || csvTable->rowCount() < 3) {
+            qCritical() << "csv preview missing";
+            return 1;
+        }
+        csvPreview.close();
+    }
+    {
+        // GBK-encoded text must be decoded correctly instead of showing mojibake.
+        PreviewDialog gbkPreview(fixtures + "/chinese-gbk.txt");
+        gbkPreview.show();
+        QTest::qWait(150);
+        QPlainTextEdit *gbkText = gbkPreview.findChild<QPlainTextEdit *>();
+        if (!gbkText || !gbkText->toPlainText().contains(QStringLiteral("项目进度报告"))) {
+            qCritical() << "gbk text preview mojibake or missing";
+            return 1;
+        }
+        gbkPreview.close();
+    }
+    {
+        // Images get the zoomable viewer instead of a static label.
+        PreviewDialog imagePreview(fixtures + "/photo.png");
+        imagePreview.show();
+        QTest::qWait(150);
+        if (!imagePreview.findChild<QWidget *>(QStringLiteral("PreviewImage"))) {
+            qCritical() << "image preview missing";
+            return 1;
+        }
+        imagePreview.close();
+    }
+    {
+        // 7z archives are listed through the 7z command line when available.
+        PreviewDialog sevenZipPreview(fixtures + "/archive.7z");
+        sevenZipPreview.show();
+        QTest::qWait(150);
+        QTableWidget *sevenZipTable = sevenZipPreview.findChild<QTableWidget *>(
+            QStringLiteral("PreviewArchive"));
+        if (!QStandardPaths::findExecutable(QStringLiteral("7z")).isEmpty()
+            && !sevenZipTable) {
+            qCritical() << "7z preview missing";
+            return 1;
+        }
+        sevenZipPreview.close();
     }
 
     // Full-text mode uses the WSS test database and current-directory scope check.

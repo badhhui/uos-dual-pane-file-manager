@@ -1,7 +1,11 @@
 #pragma once
 
 #include <QDialog>
+#include <QPixmap>
 #include <QStringList>
+#include <functional>
+
+struct ArchiveRowList;
 
 class QFrame;
 class QLabel;
@@ -21,6 +25,7 @@ public:
     ~PreviewDialog() override;
 
     QString currentPath() const;
+    void setPaths(const QStringList &paths, const QString &currentPath);
 
 protected:
     void keyPressEvent(QKeyEvent *event) override;
@@ -40,17 +45,25 @@ private:
     bool buildArchivePreview(const QString &path, const QString &suffix);
     bool buildImagePreview(const QString &path);
     bool buildTextPreview(const QString &path);
+    bool buildCsvPreview(const QString &path, const QString &suffix);
     void buildFallbackPreview(const QString &path, const QString &reason);
     void buildDirectoryPreview(const QString &path);
     void showHtml(const QString &html);
     void showBusySpinner(const QString &text);
+    void showPdfPages(const QVector<QPixmap> &pages, int totalPages);
+    void showArchiveTable(const ArchiveRowList &rows);
     void clearContent();
     void cancelWpsConversion();
     void cancelPdfRender();
     QString documentStyle() const;
 
+    template<typename T>
+    void runAsync(const QString &path, std::function<T()> work,
+                  std::function<void(const T &)> render);
+
     QStringList m_paths;
     int m_index = 0;
+    int m_generation = 0;
     QString m_path;
     QFrame *m_content = nullptr;
     QVBoxLayout *m_contentLayout = nullptr;

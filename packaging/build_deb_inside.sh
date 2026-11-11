@@ -5,7 +5,7 @@ ROOT=/work/file-manager-native
 BUILD="$ROOT/build-release"
 STAGE="$ROOT/packaging/.stage"
 OUT=/out
-VERSION=2.7.1
+VERSION=2.8.0
 ARCH=arm64
 PACKAGE=uos-dual-pane-file-manager
 DEB="$OUT/${PACKAGE}_${VERSION}_${ARCH}.deb"
@@ -80,7 +80,7 @@ Version: $VERSION
 Section: utils
 Priority: optional
 Architecture: $ARCH
-Depends: libc6 (>= 2.28), libstdc++6 (>= 8), libgcc1, libqt5core5a (>= 5.11.3), libqt5gui5 (>= 5.11.3), libqt5widgets5 (>= 5.11.3), libqt5svg5, libqt5network5, zlib1g, libsqlite3-0, poppler-utils
+Depends: libc6 (>= 2.28), libstdc++6 (>= 8), libgcc1, libqt5core5a (>= 5.11.3), libqt5gui5 (>= 5.11.3), libqt5widgets5 (>= 5.11.3), libqt5svg5, libqt5network5, libqt5concurrent5 (>= 5.11.3), zlib1g, libsqlite3-0, poppler-utils
 Recommends: xdg-utils, libglib2.0-bin, deepin-compressor
 Installed-Size: $INSTALLED_SIZE
 Maintainer: Dual-pane File Manager Project <demo@example.com>

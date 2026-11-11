@@ -27,6 +27,7 @@ class QVBoxLayout;
 class TransferManager;
 class TransferDialog;
 class EjectTask;
+class PreviewDialog;
 enum class TransferOperation;
 
 class MainWindow : public QMainWindow
@@ -173,4 +174,5 @@ private:
     QStringList m_bookmarks;
     QHash<QString, QString> m_bookmarkNames;
     QString m_deviceSignature;
+    PreviewDialog *m_previewDialog = nullptr;
 };

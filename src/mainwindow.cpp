@@ -1646,8 +1646,22 @@ void MainWindow::showPreviewFile(const QString &path)
         index = 0;
     }
     Q_UNUSED(index)
-    PreviewDialog dialog(paths, path, this);
-    dialog.exec();
+    // Non-modal quick-look style preview: an already open preview is re-targeted
+    // in place instead of blocking the main window with a second modal dialog.
+    if (m_previewDialog && m_previewDialog->isVisible()) {
+        m_previewDialog->setPaths(paths, path);
+        m_previewDialog->raise();
+        m_previewDialog->activateWindow();
+        return;
+    }
+    m_previewDialog = new PreviewDialog(paths, path, this);
+    m_previewDialog->setAttribute(Qt::WA_DeleteOnClose);
+    connect(m_previewDialog, &QObject::destroyed, this, [this]() {
+        m_previewDialog = nullptr;
+    });
+    m_previewDialog->show();
+    m_previewDialog->raise();
+    m_previewDialog->activateWindow();
 }
 
 void MainWindow::extractArchive(const QString &archivePath)
