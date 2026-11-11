@@ -14,3 +14,5 @@ dist/
 *.qmake.stash
 CMakeCache.txt
 CMakeFiles/
+# WorkBuddy workspace data
+.workbuddy/

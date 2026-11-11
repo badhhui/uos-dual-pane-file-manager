@@ -1,4 +1,6 @@
 #include "filepane.h"
+#include "directorymodel.h"
+#include "iconprovider.h"
 #include "mainwindow.h"
 #include "previewdialog.h"
 #include "transfermanager.h"
@@ -96,6 +98,39 @@ int main(int argc, char **argv)
         }, 5000)) {
         qCritical() << "left pane did not load";
         return 1;
+    }
+
+    // Natural (numeric-aware) name sorting: 1.文件1 < 2.文件2 < 10.文件10.
+    {
+        const QString sortDir = temp.path() + QStringLiteral("/sort-natural");
+        QDir().mkpath(sortDir);
+        for (int n : {1, 2, 10}) {
+            QFile numbered(sortDir + QStringLiteral("/%1.文件%1").arg(n));
+            if (!numbered.open(QIODevice::WriteOnly) || numbered.write("x\n") != 2) {
+                qCritical() << "cannot create natural sort fixture" << n;
+                return 1;
+            }
+            numbered.close();
+        }
+        DirectoryModel sortModel(&IconProvider::instance());
+        sortModel.setDirectory(sortDir, true);
+        if (!waitFor([&sortModel]() {
+                return sortModel.rowCount() > 0;
+            }, 5000)) {
+            qCritical() << "natural sort fixture directory did not load";
+            return 1;
+        }
+        QStringList names;
+        for (const FileEntry &entry : sortModel.visibleEntries())
+            names.append(entry.name);
+        const QStringList expected = QStringList()
+            << QStringLiteral("1.文件1")
+            << QStringLiteral("2.文件2")
+            << QStringLiteral("10.文件10");
+        if (names != expected) {
+            qCritical() << "natural sort order wrong:" << names;
+            return 1;
+        }
     }
 
     const QString externalPath = leftDir + "/watched-external.txt";

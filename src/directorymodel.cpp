@@ -17,6 +17,67 @@
 #include <memory>
 
 namespace {
+
+// Numeric-aware (natural) comparison, matching Windows Explorer / macOS Finder:
+// "1.文件1" < "2.文件2" < "10.文件10". Digit runs are compared by value, other
+// runs by locale-aware text comparison. Returns -1/0/1.
+int naturalCompare(const QString &left, const QString &right)
+{
+    int i = 0;
+    int j = 0;
+    while (i < left.size() && j < right.size()) {
+        if (left.at(i).isDigit() && right.at(j).isDigit()) {
+            const int startI = i;
+            const int startJ = j;
+            while (i < left.size() && left.at(i).isDigit())
+                ++i;
+            while (j < right.size() && right.at(j).isDigit())
+                ++j;
+            int digitsA = i - startI;
+            int digitsB = j - startJ;
+            // Ignore leading zeros, keeping at least one digit, so that
+            // "007" == "7" numerically.
+            int effA = startI;
+            int effB = startJ;
+            while (digitsA > 1 && left.at(effA) == QLatin1Char('0')) {
+                ++effA;
+                --digitsA;
+            }
+            while (digitsB > 1 && right.at(effB) == QLatin1Char('0')) {
+                ++effB;
+                --digitsB;
+            }
+            if (digitsA != digitsB)
+                return digitsA < digitsB ? -1 : 1;
+            for (int k = 0; k < digitsA; ++k) {
+                const uint a = left.at(effA + k).unicode();
+                const uint b = right.at(effB + k).unicode();
+                if (a != b)
+                    return a < b ? -1 : 1;
+            }
+        } else if (left.at(i).isDigit() != right.at(j).isDigit()) {
+            // Digits sort before letters/other characters at the same position.
+            return left.at(i).isDigit() ? -1 : 1;
+        } else {
+            const int startI = i;
+            const int startJ = j;
+            while (i < left.size() && !left.at(i).isDigit())
+                ++i;
+            while (j < right.size() && !right.at(j).isDigit())
+                ++j;
+            const int result = QString::localeAwareCompare(
+                left.mid(startI, i - startI), right.mid(startJ, j - startJ));
+            if (result != 0)
+                return result < 0 ? -1 : 1;
+        }
+    }
+    if (i < left.size() && j >= right.size())
+        return 1;
+    if (j < right.size() && i >= left.size())
+        return -1;
+    return 0;
+}
+
 struct LoadResult
 {
     quint64 token = 0;
@@ -658,16 +719,16 @@ bool DirectoryModel::compareEntries(const FileEntry &left, const FileEntry &righ
     default: {
         const QString leftName = left.displayName.isEmpty() ? left.name : left.displayName;
         const QString rightName = right.displayName.isEmpty() ? right.name : right.displayName;
-        result = QString::localeAwareCompare(leftName, rightName);
+        result = naturalCompare(leftName, rightName);
         if (result == 0)
             result = QString::compare(leftName, rightName, Qt::CaseInsensitive);
         if (result == 0)
-            result = QString::localeAwareCompare(left.name, right.name);
+            result = naturalCompare(left.name, right.name);
         break;
     }
     }
     if (result == 0)
-        result = QString::localeAwareCompare(left.name, right.name);
+        result = naturalCompare(left.name, right.name);
     if (order == Qt::DescendingOrder)
         result = -result;
     return result < 0;
