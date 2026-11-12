@@ -219,7 +219,7 @@ int main(int argc, char **argv)
         // Ctrl+click toggles scattered files without losing previous selections.
         {
             QTest::mouseClick(bandView->viewport(), Qt::LeftButton, Qt::ControlModifier,
-                              QPoint(30, 80));
+                              QPoint(30, 90));
             QTest::qWait(30);
             int toggledCount = bandView->selectionModel()->selectedRows(0).size();
             if (toggledCount < 4) {
@@ -227,7 +227,7 @@ int main(int argc, char **argv)
                 return 1;
             }
             QTest::mouseClick(bandView->viewport(), Qt::LeftButton, Qt::ControlModifier,
-                              QPoint(30, 80));
+                              QPoint(30, 90));
             QTest::qWait(30);
             toggledCount = bandView->selectionModel()->selectedRows(0).size();
             if (toggledCount != 3) {

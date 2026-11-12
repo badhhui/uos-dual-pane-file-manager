@@ -130,5 +130,5 @@ QSize FileRowDelegate::sizeHint(const QStyleOptionViewItem &option,
 {
     Q_UNUSED(option)
     Q_UNUSED(index)
-    return QSize(120, 24);
+    return QSize(120, 28);
 }

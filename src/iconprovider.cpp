@@ -6,7 +6,10 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QFont>
+#include <QHash>
 #include <QLinearGradient>
+#include <QMimeDatabase>
+#include <QMimeType>
 #include <QPainter>
 #include <QPainterPath>
 #include <QPen>
@@ -670,6 +673,49 @@ void drawAppFallback(QPainter &painter)
     painter.drawRoundedRect(QRectF(34, 29, 10, 10), 2, 2);
     painter.restore();
 }
+// Theme icon names for formats the shared mime database does not know but the
+// Deepin/UOS icon themes ship artwork for (same names dde-file-manager uses).
+QStringList extraThemeNamesForSuffix(const QString &ext)
+{
+    static const QHash<QString, QString> extraNames = {
+        {QStringLiteral("wps"), QStringLiteral("application-wps-office.doc")},
+        {QStringLiteral("et"), QStringLiteral("application-wps-office.et")},
+        {QStringLiteral("dps"), QStringLiteral("application-wps-office.dps")},
+        {QStringLiteral("uof"), QStringLiteral("application-uof")},
+        {QStringLiteral("ofd"), QStringLiteral("application-ofd")},
+        {QStringLiteral("caj"), QStringLiteral("application-caj")},
+        {QStringLiteral("xmind"), QStringLiteral("application-x-xmind")},
+        {QStringLiteral("dwg"), QStringLiteral("application-dwg")},
+        {QStringLiteral("dxf"), QStringLiteral("application-x-dxf")},
+        {QStringLiteral("torrent"), QStringLiteral("application-x-bittorrent")},
+        {QStringLiteral("apk"), QStringLiteral("application-vnd.android.package-archive")},
+        {QStringLiteral("epub"), QStringLiteral("application-epub+zip")},
+    };
+    QStringList names;
+    const QString extra = extraNames.value(ext);
+    if (!extra.isEmpty())
+        names.append(extra);
+    return names;
+}
+
+QStringList themeIconNamesForSuffix(const QString &suffix)
+{
+    QStringList names;
+    const QString ext = suffix.trimmed().toLower();
+    if (ext.isEmpty())
+        return names;
+    names.append(extraThemeNamesForSuffix(ext));
+    QMimeDatabase database;
+    const QMimeType mime = database.mimeTypeForFile(QStringLiteral("x.") + ext,
+                                                    QMimeDatabase::MatchExtension);
+    if (mime.isValid()) {
+        names.append(mime.iconName());
+        names.append(mime.genericIconName());
+    }
+    names.removeAll(QString());
+    names.removeDuplicates();
+    return names;
+}
 }
 
 IconProvider &IconProvider::instance()
@@ -720,6 +766,28 @@ QIcon IconProvider::fileIcon(bool isDirectory, const QString &suffix)
 
 QIcon IconProvider::buildFileIcon(bool isDirectory, const QString &suffix)
 {
+    // Deepin/UOS parity: prefer the mimetypes icons shipped with the system
+    // icon theme — the same artwork the bundled file manager displays. The
+    // drawn icons below act as the fallback for bare environments.
+    QStringList themeNames;
+    if (isDirectory)
+        themeNames.append(QStringLiteral("folder"));
+    else
+        themeNames.append(themeIconNamesForSuffix(suffix));
+    themeNames.removeAll(QString());
+    themeNames.removeDuplicates();
+    for (const QString &name : themeNames) {
+        QIcon themed = QIcon::fromTheme(name);
+        if (!themed.isNull())
+            return themed;
+        const QString path = resolveIconFile(name);
+        if (!path.isEmpty()) {
+            QIcon icon(path);
+            if (!icon.isNull())
+                return icon;
+        }
+    }
+
     QPixmap canvas(128, 128);
     canvas.fill(Qt::transparent);
     QPainter painter(&canvas);

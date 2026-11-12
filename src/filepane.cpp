@@ -198,7 +198,7 @@ void FilePane::buildUi()
     m_view->setMouseTracking(true);
     m_view->viewport()->setAttribute(Qt::WA_Hover, true);
     m_view->verticalHeader()->setVisible(false);
-    m_view->verticalHeader()->setDefaultSectionSize(24);
+    m_view->verticalHeader()->setDefaultSectionSize(28);
     m_header = new FileHeaderView(Qt::Horizontal, m_view);
     m_view->setHorizontalHeader(m_header);
     m_delegate = new FileRowDelegate(this);

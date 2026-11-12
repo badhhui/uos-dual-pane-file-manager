@@ -137,7 +137,7 @@
 ## 安装（UOS / Debian arm64）
 
 ```bash
-sudo dpkg -i uos-dual-pane-file-manager_2.10.0_arm64.deb
+sudo dpkg -i uos-dual-pane-file-manager_2.10.1_arm64.deb
 ```
 
 从应用菜单启动「文件管理器」，或：
