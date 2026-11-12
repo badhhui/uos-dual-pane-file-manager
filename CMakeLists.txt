@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(DualPaneFileManager VERSION 2.9.3 LANGUAGES CXX)
+project(DualPaneFileManager VERSION 2.10.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

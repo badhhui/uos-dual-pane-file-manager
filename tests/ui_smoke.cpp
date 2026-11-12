@@ -108,6 +108,17 @@ int main(int argc, char **argv)
         return 1;
     }
 
+    // Extended file type icons: a known installer format must render a
+    // distinct icon, not the generic unknown-file fallback.
+    {
+        const QIcon installer = IconProvider::instance().fileIcon(false, QStringLiteral("apk"));
+        const QIcon unknown = IconProvider::instance().fileIcon(false, QStringLiteral("zzunknown"));
+        if (installer.pixmap(64, 64).toImage() == unknown.pixmap(64, 64).toImage()) {
+            qCritical() << "installer icon matches unknown fallback";
+            return 1;
+        }
+    }
+
     if (!waitFor([&window]() {
             return window.leftPane()->directoryModel()->rowCount() > 0;
         }, 5000)) {

@@ -14,6 +14,7 @@
 #include <QStandardPaths>
 #include <QStringList>
 #include <QUrl>
+#include <QVector>
 
 namespace {
 enum class Family {
@@ -26,6 +27,18 @@ enum class Family {
     Video,
     Audio,
     Archive,
+    Disk,
+    Installer,
+    Font,
+    Book,
+    Database,
+    Torrent,
+    Cad,
+    Vector,
+    Contact,
+    Calendar,
+    Certificate,
+    Mindmap,
     Code,
     Fig,
     Other
@@ -38,58 +51,143 @@ struct FamilyStyle {
     QStringList extensions;
 };
 
+struct FamilySpec {
+    Family family;
+    QStringList extensions;
+    QColor main;
+    QColor soft;
+    QColor glyph;
+};
+
+// Single source of truth for suffix → family/color mapping, covering the file
+// types commonly seen on UOS (mirroring what the bundled file manager shows).
+const QVector<FamilySpec> &familyTable()
+{
+    static const QVector<FamilySpec> table = {
+        {Family::Word, {QStringLiteral("doc"), QStringLiteral("docx"), QStringLiteral("wps"),
+                        QStringLiteral("wpt"), QStringLiteral("odt"), QStringLiteral("rtf"),
+                        QStringLiteral("dot"), QStringLiteral("dotx"), QStringLiteral("docm"),
+                        QStringLiteral("uof")},
+         QColor(QStringLiteral("#2F6BFF")), QColor(QStringLiteral("#E7EEFF")), QColor(QStringLiteral("#2F6BFF"))},
+        {Family::Sheet, {QStringLiteral("xls"), QStringLiteral("xlsx"), QStringLiteral("et"),
+                         QStringLiteral("xlt"), QStringLiteral("xltx"), QStringLiteral("xlsm"),
+                         QStringLiteral("csv"), QStringLiteral("ods"), QStringLiteral("numbers")},
+         QColor(QStringLiteral("#1FA56A")), QColor(QStringLiteral("#E4F7EE")), QColor(QStringLiteral("#1FA56A"))},
+        {Family::Slides, {QStringLiteral("ppt"), QStringLiteral("pptx"), QStringLiteral("dps"),
+                          QStringLiteral("odp"), QStringLiteral("key"), QStringLiteral("pps"),
+                          QStringLiteral("ppsx"), QStringLiteral("pot"), QStringLiteral("potx")},
+         QColor(QStringLiteral("#F08A2E")), QColor(QStringLiteral("#FFF0E1")), QColor(QStringLiteral("#F08A2E"))},
+        {Family::Text, {QStringLiteral("txt"), QStringLiteral("text"), QStringLiteral("md"),
+                        QStringLiteral("markdown"), QStringLiteral("log"), QStringLiteral("rst"),
+                        QStringLiteral("ini"), QStringLiteral("conf"), QStringLiteral("cfg")},
+         QColor(QStringLiteral("#64748B")), QColor(QStringLiteral("#EEF2F7")), QColor(QStringLiteral("#64748B"))},
+        {Family::Pdf, {QStringLiteral("pdf"), QStringLiteral("djvu"), QStringLiteral("djv")},
+         QColor(QStringLiteral("#E5484D")), QColor(QStringLiteral("#FDEBEC")), QColor(QStringLiteral("#E5484D"))},
+        {Family::Image, {QStringLiteral("jpg"), QStringLiteral("jpeg"), QStringLiteral("png"),
+                         QStringLiteral("gif"), QStringLiteral("bmp"), QStringLiteral("webp"),
+                         QStringLiteral("svg"), QStringLiteral("tif"), QStringLiteral("tiff"),
+                         QStringLiteral("heic"), QStringLiteral("heif"), QStringLiteral("avif"),
+                         QStringLiteral("jfif"), QStringLiteral("ico"), QStringLiteral("psd"),
+                         QStringLiteral("dng"), QStringLiteral("cr2"), QStringLiteral("nef"),
+                         QStringLiteral("arw")},
+         QColor(QStringLiteral("#0EA5C9")), QColor(QStringLiteral("#E1F6FB")), QColor(QStringLiteral("#0EA5C9"))},
+        {Family::Video, {QStringLiteral("mp4"), QStringLiteral("mkv"), QStringLiteral("mov"),
+                         QStringLiteral("avi"), QStringLiteral("webm"), QStringLiteral("m4v"),
+                         QStringLiteral("wmv"), QStringLiteral("flv"), QStringLiteral("mpg"),
+                         QStringLiteral("mpeg"), QStringLiteral("3gp"), QStringLiteral("ts"),
+                         QStringLiteral("rmvb"), QStringLiteral("rm"), QStringLiteral("vob"),
+                         QStringLiteral("m2ts"), QStringLiteral("ogv")},
+         QColor(QStringLiteral("#4F46E5")), QColor(QStringLiteral("#EAE8FF")), QColor(QStringLiteral("#4F46E5"))},
+        {Family::Audio, {QStringLiteral("mp3"), QStringLiteral("flac"), QStringLiteral("wav"),
+                         QStringLiteral("ogg"), QStringLiteral("m4a"), QStringLiteral("aac"),
+                         QStringLiteral("opus"), QStringLiteral("wma"), QStringLiteral("aiff"),
+                         QStringLiteral("amr"), QStringLiteral("mid"), QStringLiteral("midi"),
+                         QStringLiteral("ape"), QStringLiteral("mka")},
+         QColor(QStringLiteral("#8B5CF6")), QColor(QStringLiteral("#F1ECFF")), QColor(QStringLiteral("#8B5CF6"))},
+        {Family::Archive, {QStringLiteral("zip"), QStringLiteral("rar"), QStringLiteral("7z"),
+                           QStringLiteral("tar"), QStringLiteral("gz"), QStringLiteral("bz2"),
+                           QStringLiteral("bz"), QStringLiteral("xz"), QStringLiteral("lzma"),
+                           QStringLiteral("zst"), QStringLiteral("tgz"), QStringLiteral("tbz2"),
+                           QStringLiteral("jar"), QStringLiteral("cab"), QStringLiteral("arj")},
+         QColor(QStringLiteral("#D97706")), QColor(QStringLiteral("#FFF3DF")), QColor(QStringLiteral("#D97706"))},
+        {Family::Disk, {QStringLiteral("iso"), QStringLiteral("img"), QStringLiteral("dmg"),
+                        QStringLiteral("vhd"), QStringLiteral("vdi"), QStringLiteral("mds"),
+                        QStringLiteral("nrg")},
+         QColor(QStringLiteral("#5E81AC")), QColor(QStringLiteral("#E9EFF6")), QColor(QStringLiteral("#5E81AC"))},
+        {Family::Installer, {QStringLiteral("exe"), QStringLiteral("msi"), QStringLiteral("apk"),
+                             QStringLiteral("appimage"), QStringLiteral("deb"), QStringLiteral("rpm")},
+         QColor(QStringLiteral("#9333EA")), QColor(QStringLiteral("#F3E8FF")), QColor(QStringLiteral("#9333EA"))},
+        {Family::Font, {QStringLiteral("ttf"), QStringLiteral("otf"), QStringLiteral("ttc"),
+                        QStringLiteral("woff"), QStringLiteral("woff2"), QStringLiteral("eot"),
+                        QStringLiteral("fon")},
+         QColor(QStringLiteral("#EC4899")), QColor(QStringLiteral("#FDE9F3")), QColor(QStringLiteral("#EC4899"))},
+        {Family::Book, {QStringLiteral("epub"), QStringLiteral("mobi"), QStringLiteral("azw"),
+                        QStringLiteral("azw3"), QStringLiteral("chm"), QStringLiteral("hlp"),
+                        QStringLiteral("caj")},
+         QColor(QStringLiteral("#14B8A6")), QColor(QStringLiteral("#E6FAF7")), QColor(QStringLiteral("#14B8A6"))},
+        {Family::Database, {QStringLiteral("db"), QStringLiteral("sqlite"), QStringLiteral("sqlite3"),
+                            QStringLiteral("dbf"), QStringLiteral("mdb"), QStringLiteral("accdb"),
+                            QStringLiteral("sql")},
+         QColor(QStringLiteral("#0F766E")), QColor(QStringLiteral("#E0F2F0")), QColor(QStringLiteral("#0F766E"))},
+        {Family::Torrent, {QStringLiteral("torrent")},
+         QColor(QStringLiteral("#F59E0B")), QColor(QStringLiteral("#FEF6E0")), QColor(QStringLiteral("#F59E0B"))},
+        {Family::Cad, {QStringLiteral("dwg"), QStringLiteral("dxf"), QStringLiteral("dwf")},
+         QColor(QStringLiteral("#1E40AF")), QColor(QStringLiteral("#E3ECFC")), QColor(QStringLiteral("#1E40AF"))},
+        {Family::Vector, {QStringLiteral("ai"), QStringLiteral("eps")},
+         QColor(QStringLiteral("#A21CAF")), QColor(QStringLiteral("#F9EAFB")), QColor(QStringLiteral("#A21CAF"))},
+        {Family::Contact, {QStringLiteral("vcf"), QStringLiteral("vcard")},
+         QColor(QStringLiteral("#0284C7")), QColor(QStringLiteral("#E3F2FC")), QColor(QStringLiteral("#0284C7"))},
+        {Family::Calendar, {QStringLiteral("ics"), QStringLiteral("ical")},
+         QColor(QStringLiteral("#CA8A04")), QColor(QStringLiteral("#FBF0D7")), QColor(QStringLiteral("#CA8A04"))},
+        {Family::Certificate, {QStringLiteral("pem"), QStringLiteral("crt"), QStringLiteral("cer"),
+                               QStringLiteral("p12"), QStringLiteral("pfx"), QStringLiteral("der")},
+         QColor(QStringLiteral("#4D7C0F")), QColor(QStringLiteral("#EFF7E4")), QColor(QStringLiteral("#4D7C0F"))},
+        {Family::Mindmap, {QStringLiteral("xmind"), QStringLiteral("mm"), QStringLiteral("mmap"),
+                           QStringLiteral("mind")},
+         QColor(QStringLiteral("#C026D3")), QColor(QStringLiteral("#F9E7FC")), QColor(QStringLiteral("#C026D3"))},
+        {Family::Code, {QStringLiteral("sh"), QStringLiteral("bash"), QStringLiteral("zsh"),
+                        QStringLiteral("py"), QStringLiteral("js"), QStringLiteral("ts"),
+                        QStringLiteral("c"), QStringLiteral("cpp"), QStringLiteral("h"),
+                        QStringLiteral("hpp"), QStringLiteral("cc"), QStringLiteral("java"),
+                        QStringLiteral("go"), QStringLiteral("rs"), QStringLiteral("rb"),
+                        QStringLiteral("php"), QStringLiteral("pl"), QStringLiteral("lua"),
+                        QStringLiteral("json"), QStringLiteral("xml"), QStringLiteral("html"),
+                        QStringLiteral("css"), QStringLiteral("yml"), QStringLiteral("yaml"),
+                        QStringLiteral("toml"), QStringLiteral("bat"), QStringLiteral("cmd"),
+                        QStringLiteral("ps1")},
+         QColor(QStringLiteral("#1F2937")), QColor(QStringLiteral("#E8F8EE")), QColor(QStringLiteral("#22C55E"))},
+        {Family::Fig, {QStringLiteral("fig")},
+         QColor(QStringLiteral("#111827")), QColor(QStringLiteral("#F0F3F8")), QColor(QStringLiteral("#111827"))},
+    };
+    return table;
+}
+
+const FamilySpec &specForSuffix(const QString &suffix)
+{
+    static const FamilySpec other = {Family::Other, QStringList(), QColor(QStringLiteral("#64748B")),
+                                     QColor(QStringLiteral("#F1F5F9")), QColor(QStringLiteral("#64748B"))};
+    const QString ext = suffix.toLower();
+    for (const FamilySpec &spec : familyTable()) {
+        if (spec.extensions.contains(ext))
+            return spec;
+    }
+    return other;
+}
+
 FamilyStyle styleForSuffix(const QString &suffix)
 {
-    const QString ext = suffix.toLower();
-    const QStringList word = {QStringLiteral("doc"), QStringLiteral("docx"), QStringLiteral("wps"), QStringLiteral("odt"), QStringLiteral("rtf"), QStringLiteral("dot"), QStringLiteral("dotx"), QStringLiteral("wpt"), QStringLiteral("ofd")};
-    const QStringList sheet = {QStringLiteral("xls"), QStringLiteral("xlsx"), QStringLiteral("et"), QStringLiteral("csv"), QStringLiteral("ods"), QStringLiteral("numbers")};
-    const QStringList slides = {QStringLiteral("ppt"), QStringLiteral("pptx"), QStringLiteral("odp"), QStringLiteral("dps"), QStringLiteral("key")};
-    const QStringList text = {QStringLiteral("txt"), QStringLiteral("md"), QStringLiteral("markdown"), QStringLiteral("log"), QStringLiteral("ini"), QStringLiteral("conf"), QStringLiteral("cfg")};
-    const QStringList image = {QStringLiteral("jpg"), QStringLiteral("jpeg"), QStringLiteral("png"), QStringLiteral("gif"), QStringLiteral("bmp"), QStringLiteral("webp"), QStringLiteral("svg"), QStringLiteral("tif"), QStringLiteral("tiff"), QStringLiteral("heic"), QStringLiteral("ico")};
-    const QStringList video = {QStringLiteral("mp4"), QStringLiteral("mkv"), QStringLiteral("mov"), QStringLiteral("avi"), QStringLiteral("webm"), QStringLiteral("m4v"), QStringLiteral("wmv"), QStringLiteral("flv")};
-    const QStringList audio = {QStringLiteral("mp3"), QStringLiteral("flac"), QStringLiteral("wav"), QStringLiteral("ogg"), QStringLiteral("m4a"), QStringLiteral("aac"), QStringLiteral("opus")};
-    const QStringList archive = {QStringLiteral("zip"), QStringLiteral("rar"), QStringLiteral("7z"), QStringLiteral("tar"), QStringLiteral("gz"), QStringLiteral("bz2"), QStringLiteral("xz"), QStringLiteral("deb"), QStringLiteral("rpm")};
-    const QStringList code = {QStringLiteral("sh"), QStringLiteral("bash"), QStringLiteral("zsh"), QStringLiteral("py"), QStringLiteral("js"), QStringLiteral("ts"), QStringLiteral("c"), QStringLiteral("cpp"), QStringLiteral("h"), QStringLiteral("hpp"), QStringLiteral("cc"), QStringLiteral("java"), QStringLiteral("go"), QStringLiteral("rs"), QStringLiteral("rb"), QStringLiteral("php"), QStringLiteral("pl"), QStringLiteral("lua"), QStringLiteral("json"), QStringLiteral("xml"), QStringLiteral("html"), QStringLiteral("css"), QStringLiteral("yml"), QStringLiteral("yaml"), QStringLiteral("toml")};
-
-    if (word.contains(ext)) return {QColor(QStringLiteral("#2F6BFF")), QColor(QStringLiteral("#E7EEFF")), QColor(QStringLiteral("#2F6BFF")), word};
-    if (sheet.contains(ext)) return {QColor(QStringLiteral("#1FA56A")), QColor(QStringLiteral("#E4F7EE")), QColor(QStringLiteral("#1FA56A")), sheet};
-    if (slides.contains(ext)) return {QColor(QStringLiteral("#F08A2E")), QColor(QStringLiteral("#FFF0E1")), QColor(QStringLiteral("#F08A2E")), slides};
-    if (text.contains(ext)) return {QColor(QStringLiteral("#64748B")), QColor(QStringLiteral("#EEF2F7")), QColor(QStringLiteral("#64748B")), text};
-    if (ext == QStringLiteral("pdf")) return {QColor(QStringLiteral("#E5484D")), QColor(QStringLiteral("#FDEBEC")), QColor(QStringLiteral("#E5484D")), QStringList() << ext};
-    if (image.contains(ext)) return {QColor(QStringLiteral("#0EA5C9")), QColor(QStringLiteral("#E1F6FB")), QColor(QStringLiteral("#0EA5C9")), image};
-    if (video.contains(ext)) return {QColor(QStringLiteral("#4F46E5")), QColor(QStringLiteral("#EAE8FF")), QColor(QStringLiteral("#4F46E5")), video};
-    if (audio.contains(ext)) return {QColor(QStringLiteral("#8B5CF6")), QColor(QStringLiteral("#F1ECFF")), QColor(QStringLiteral("#8B5CF6")), audio};
-    if (archive.contains(ext)) return {QColor(QStringLiteral("#D97706")), QColor(QStringLiteral("#FFF3DF")), QColor(QStringLiteral("#D97706")), archive};
-    if (ext == QStringLiteral("fig")) return {QColor(QStringLiteral("#111827")), QColor(QStringLiteral("#F0F3F8")), QColor(QStringLiteral("#111827")), QStringList() << ext};
-    if (code.contains(ext)) return {QColor(QStringLiteral("#1F2937")), QColor(QStringLiteral("#E8F8EE")), QColor(QStringLiteral("#22C55E")), code};
-    return {QColor(QStringLiteral("#64748B")), QColor(QStringLiteral("#F1F5F9")), QColor(QStringLiteral("#64748B")), QStringList()};
+    const FamilySpec &spec = specForSuffix(suffix);
+    FamilyStyle style;
+    style.main = spec.main;
+    style.soft = spec.soft;
+    style.glyph = spec.glyph;
+    style.extensions = spec.extensions;
+    return style;
 }
 
 Family familyForSuffix(const QString &suffix)
 {
-    const QString ext = suffix.toLower();
-    const QStringList word = {QStringLiteral("doc"), QStringLiteral("docx"), QStringLiteral("wps"), QStringLiteral("odt"), QStringLiteral("rtf"), QStringLiteral("dot"), QStringLiteral("dotx"), QStringLiteral("wpt"), QStringLiteral("ofd")};
-    const QStringList sheet = {QStringLiteral("xls"), QStringLiteral("xlsx"), QStringLiteral("et"), QStringLiteral("csv"), QStringLiteral("ods"), QStringLiteral("numbers")};
-    const QStringList slides = {QStringLiteral("ppt"), QStringLiteral("pptx"), QStringLiteral("odp"), QStringLiteral("dps"), QStringLiteral("key")};
-    const QStringList text = {QStringLiteral("txt"), QStringLiteral("md"), QStringLiteral("markdown"), QStringLiteral("log"), QStringLiteral("ini"), QStringLiteral("conf"), QStringLiteral("cfg")};
-    const QStringList image = {QStringLiteral("jpg"), QStringLiteral("jpeg"), QStringLiteral("png"), QStringLiteral("gif"), QStringLiteral("bmp"), QStringLiteral("webp"), QStringLiteral("svg"), QStringLiteral("tif"), QStringLiteral("tiff"), QStringLiteral("heic"), QStringLiteral("ico")};
-    const QStringList video = {QStringLiteral("mp4"), QStringLiteral("mkv"), QStringLiteral("mov"), QStringLiteral("avi"), QStringLiteral("webm"), QStringLiteral("m4v"), QStringLiteral("wmv"), QStringLiteral("flv")};
-    const QStringList audio = {QStringLiteral("mp3"), QStringLiteral("flac"), QStringLiteral("wav"), QStringLiteral("ogg"), QStringLiteral("m4a"), QStringLiteral("aac"), QStringLiteral("opus")};
-    const QStringList archive = {QStringLiteral("zip"), QStringLiteral("rar"), QStringLiteral("7z"), QStringLiteral("tar"), QStringLiteral("gz"), QStringLiteral("bz2"), QStringLiteral("xz"), QStringLiteral("deb"), QStringLiteral("rpm")};
-    const QStringList code = {QStringLiteral("sh"), QStringLiteral("bash"), QStringLiteral("zsh"), QStringLiteral("py"), QStringLiteral("js"), QStringLiteral("ts"), QStringLiteral("c"), QStringLiteral("cpp"), QStringLiteral("h"), QStringLiteral("hpp"), QStringLiteral("cc"), QStringLiteral("java"), QStringLiteral("go"), QStringLiteral("rs"), QStringLiteral("rb"), QStringLiteral("php"), QStringLiteral("pl"), QStringLiteral("lua"), QStringLiteral("json"), QStringLiteral("xml"), QStringLiteral("html"), QStringLiteral("css"), QStringLiteral("yml"), QStringLiteral("yaml"), QStringLiteral("toml")};
-
-    if (word.contains(ext)) return Family::Word;
-    if (sheet.contains(ext)) return Family::Sheet;
-    if (slides.contains(ext)) return Family::Slides;
-    if (text.contains(ext)) return Family::Text;
-    if (ext == QStringLiteral("pdf")) return Family::Pdf;
-    if (image.contains(ext)) return Family::Image;
-    if (video.contains(ext)) return Family::Video;
-    if (audio.contains(ext)) return Family::Audio;
-    if (archive.contains(ext)) return Family::Archive;
-    if (ext == QStringLiteral("fig")) return Family::Fig;
-    if (code.contains(ext)) return Family::Code;
-    return Family::Other;
+    return specForSuffix(suffix).family;
 }
 
 void drawFolder(QPainter &painter)
@@ -233,6 +331,137 @@ void drawFamilyGlyph(QPainter &painter, Family family, const QRectF &area, const
         painter.setBrush(colors[2]); painter.drawRoundedRect(QRectF(startX, startY + size + gap, size, size), 1.2, 1.2);
         painter.setBrush(colors[3]); painter.drawEllipse(QPointF(startX + size + gap + size / 2.0, startY + size + gap + size / 2.0), size / 2.0, size / 2.0);
         painter.setBrush(colors[4]); painter.drawRoundedRect(QRectF(startX, startY + 2 * (size + gap), size, size), 1.2, 1.2);
+    } else if (family == Family::Book) {
+        // Open book: two facing pages with a center spine.
+        painter.setPen(QPen(color, 1.3));
+        painter.setBrush(color);
+        painter.drawRoundedRect(QRectF(area.left(), area.top() + 3,
+                                       area.width() / 2.0 - 1, area.height() - 5), 1.5, 1.5);
+        painter.drawRoundedRect(QRectF(center.x() + 1, area.top() + 3,
+                                       area.width() / 2.0 - 1, area.height() - 5), 1.5, 1.5);
+        painter.setPen(QPen(color, 1.6, Qt::SolidLine, Qt::RoundCap));
+        painter.drawLine(QPointF(center.x(), area.top() + 2), QPointF(center.x(), area.bottom() - 1));
+    } else if (family == Family::Font) {
+        QFont glyphFont = QApplication::font();
+        glyphFont.setBold(true);
+        glyphFont.setPixelSize(int(area.height() * 0.92));
+        painter.setFont(glyphFont);
+        painter.setPen(QPen(color, 1));
+        painter.drawText(area, Qt::AlignCenter, QStringLiteral("Aa"));
+    } else if (family == Family::Disk) {
+        painter.setPen(QPen(color, 1.6));
+        painter.setBrush(Qt::NoBrush);
+        painter.drawEllipse(center, 9, 9);
+        painter.drawEllipse(center, 3, 3);
+        painter.setBrush(color);
+        painter.setPen(Qt::NoPen);
+        painter.drawEllipse(center, 1.2, 1.2);
+        painter.setPen(QPen(QColor(255, 255, 255, 170), 1.4));
+        painter.drawArc(QRectF(center.x() - 9, center.y() - 9, 18, 18), 40 * 16, 70 * 16);
+    } else if (family == Family::Installer) {
+        painter.setPen(QPen(color, 1.4));
+        painter.setBrush(Qt::NoBrush);
+        painter.drawRoundedRect(QRectF(area.left() + 1, area.top() + 4,
+                                       area.width() - 2, area.height() - 6), 2, 2);
+        painter.drawLine(QPointF(area.left() + 1, area.top() + 9), QPointF(area.right() - 1, area.top() + 9));
+        painter.drawLine(QPointF(center.x(), area.top() + 4), QPointF(center.x(), area.top() + 9));
+        painter.setPen(QPen(color, 1.8, Qt::SolidLine, Qt::RoundCap));
+        painter.drawLine(QPointF(center.x(), area.top() + 12), QPointF(center.x(), area.bottom() - 4));
+        QPolygonF arrowHead;
+        arrowHead << QPointF(center.x() - 3, area.bottom() - 6)
+                  << QPointF(center.x() + 3, area.bottom() - 6)
+                  << QPointF(center.x(), area.bottom() - 1.5);
+        painter.setBrush(color);
+        painter.setPen(Qt::NoPen);
+        painter.drawPolygon(arrowHead);
+    } else if (family == Family::Database) {
+        painter.setPen(QPen(color, 1.4));
+        painter.setBrush(Qt::NoBrush);
+        painter.drawEllipse(QRectF(center.x() - 9, area.top() + 1, 18, 6));
+        painter.drawLine(QPointF(area.left() + 4, area.top() + 4), QPointF(area.left() + 4, area.bottom() - 3));
+        painter.drawLine(QPointF(area.right() - 4, area.top() + 4), QPointF(area.right() - 4, area.bottom() - 3));
+        painter.drawArc(QRectF(center.x() - 9, area.bottom() - 9, 18, 6), 180 * 16, 180 * 16);
+        painter.drawArc(QRectF(center.x() - 9, area.center().y() - 2, 18, 6), 180 * 16, 180 * 16);
+    } else if (family == Family::Torrent) {
+        painter.setPen(QPen(color, 1.8, Qt::SolidLine, Qt::RoundCap));
+        painter.drawLine(QPointF(center.x(), area.top() + 2), QPointF(center.x(), area.bottom() - 5));
+        QPolygonF torrentHead;
+        torrentHead << QPointF(center.x() - 3.5, area.bottom() - 7)
+                    << QPointF(center.x() + 3.5, area.bottom() - 7)
+                    << QPointF(center.x(), area.bottom() - 2);
+        painter.setBrush(color);
+        painter.setPen(Qt::NoPen);
+        painter.drawPolygon(torrentHead);
+        painter.setPen(QPen(color, 1.6));
+        painter.drawLine(QPointF(area.left() + 3, area.bottom() - 1), QPointF(area.right() - 3, area.bottom() - 1));
+    } else if (family == Family::Cad) {
+        painter.setPen(QPen(color, 1.4));
+        painter.setBrush(Qt::NoBrush);
+        QPainterPath setSquare;
+        setSquare.moveTo(area.left() + 2, area.bottom() - 2);
+        setSquare.lineTo(area.right() - 4, area.bottom() - 2);
+        setSquare.lineTo(area.right() - 4, area.top() + 2);
+        setSquare.closeSubpath();
+        painter.drawPath(setSquare);
+        painter.drawLine(QPointF(area.left() + 5, area.bottom() - 5), QPointF(area.right() - 7, area.bottom() - 5));
+        painter.drawEllipse(QPointF(center.x() + 1, center.y() + 1), 2.2, 2.2);
+    } else if (family == Family::Vector) {
+        painter.setPen(QPen(color, 1.3));
+        painter.setBrush(Qt::NoBrush);
+        QPainterPath nib;
+        nib.moveTo(center.x(), area.top() + 2);
+        nib.cubicTo(area.right() - 2, area.top() + 6, area.right() - 3, area.bottom() - 4,
+                    center.x() + 2, area.bottom() - 2);
+        nib.lineTo(center.x() - 2, area.bottom() - 2);
+        nib.cubicTo(area.left() + 3, area.bottom() - 4, area.left() + 2, area.top() + 6,
+                    center.x(), area.top() + 2);
+        painter.drawPath(nib);
+        painter.setBrush(color);
+        painter.setPen(Qt::NoPen);
+        painter.drawEllipse(QPointF(center.x(), area.bottom() - 4), 1.6, 1.6);
+    } else if (family == Family::Contact) {
+        painter.setBrush(color);
+        painter.setPen(Qt::NoPen);
+        painter.drawEllipse(QPointF(center.x(), area.top() + 6), 4, 4);
+        QPainterPath bust;
+        bust.moveTo(area.left() + 3, area.bottom() - 1);
+        bust.cubicTo(area.left() + 4, area.bottom() - 8, area.right() - 4, area.bottom() - 8,
+                     area.right() - 3, area.bottom() - 1);
+        bust.closeSubpath();
+        painter.drawPath(bust);
+    } else if (family == Family::Calendar) {
+        painter.setPen(QPen(color, 1.4));
+        painter.setBrush(Qt::NoBrush);
+        painter.drawRoundedRect(QRectF(area.left() + 1, area.top() + 3,
+                                       area.width() - 2, area.height() - 5), 2, 2);
+        painter.drawLine(QPointF(area.left() + 1, area.top() + 8), QPointF(area.right() - 1, area.top() + 8));
+        painter.drawLine(QPointF(area.left() + 7, area.top() + 1), QPointF(area.left() + 7, area.top() + 5));
+        painter.drawLine(QPointF(area.right() - 7, area.top() + 1), QPointF(area.right() - 7, area.top() + 5));
+        painter.setBrush(color);
+        painter.setPen(Qt::NoPen);
+        painter.drawRoundedRect(QRectF(center.x() - 1.5, center.y() + 1, 3, 3), 0.8, 0.8);
+    } else if (family == Family::Certificate) {
+        painter.setPen(QPen(color, 1.5));
+        painter.setBrush(Qt::NoBrush);
+        painter.drawEllipse(QPointF(center.x(), area.top() + 7), 5.5, 5.5);
+        painter.drawLine(QPointF(center.x() - 2, area.top() + 12), QPointF(center.x() - 3, area.bottom() - 1));
+        painter.drawLine(QPointF(center.x() + 2, area.top() + 12), QPointF(center.x() + 3, area.bottom() - 1));
+        painter.setBrush(color);
+        painter.setPen(Qt::NoPen);
+        painter.drawEllipse(QPointF(center.x(), area.top() + 7), 2, 2);
+    } else if (family == Family::Mindmap) {
+        painter.setPen(QPen(color, 1.3));
+        painter.setBrush(color);
+        painter.drawEllipse(QPointF(center.x() - 5, area.top() + 5), 3, 3);
+        painter.drawEllipse(QPointF(center.x() + 5, area.top() + 5), 3, 3);
+        painter.drawEllipse(QPointF(center.x(), area.bottom() - 4), 3, 3);
+        painter.setBrush(Qt::NoBrush);
+        painter.drawLine(QPointF(center.x() - 3.5, area.top() + 6.5), QPointF(center.x() + 3.5, area.top() + 6.5));
+        painter.drawLine(QPointF(center.x() - 3.5, area.top() + 6.5), QPointF(center.x() - 1, area.bottom() - 5.5));
+        painter.drawLine(QPointF(center.x() + 3.5, area.top() + 6.5), QPointF(center.x() + 1, area.bottom() - 5.5));
+        painter.setBrush(color);
+        painter.setPen(Qt::NoPen);
+        painter.drawEllipse(QPointF(center.x(), area.center().y()), 2.2, 2.2);
     } else {
         painter.setPen(QPen(color, 1.8, Qt::SolidLine, Qt::RoundCap));
         painter.drawLine(QPointF(area.left() + 3, area.top() + 4), QPointF(area.right() - 4, area.top() + 4));
