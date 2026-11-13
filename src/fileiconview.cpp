@@ -1,6 +1,7 @@
 #include "fileiconview.h"
 
 #include "directorymodel.h"
+#include "fileicondelegate.h"
 
 #include <QDrag>
 #include <QDragEnterEvent>
@@ -26,9 +27,12 @@ FileIconView::FileIconView(QWidget *parent)
     setWordWrap(false);
     setUniformItemSizes(true);
     setIconSize(QSize(48, 48));
-    setGridSize(QSize(108, 104));
-    setSpacing(4);
+    setGridSize(QSize(124, 116));
+    setSpacing(0);
     setTextElideMode(Qt::ElideMiddle);
+    setItemDelegate(new FileIconDelegate(this));
+    setMouseTracking(true);
+    viewport()->setAttribute(Qt::WA_Hover, true);
     setFrameShape(QFrame::NoFrame);
     setSelectionMode(QAbstractItemView::ExtendedSelection);
     setEditTriggers(QAbstractItemView::NoEditTriggers);
@@ -156,13 +160,12 @@ void FileIconView::mousePressEvent(QMouseEvent *event)
 {
     if (event->button() == Qt::LeftButton) {
         const QModelIndex index = indexAt(event->pos());
-        // Shift/Ctrl keep the native selection gestures; a plain drag from an
-        // unselected item or empty space starts the rubber band instead of an
-        // item drag (same rule as the list view).
-        const bool onSelected = index.isValid() && selectionModel()
-            && selectionModel()->isSelected(index);
+        // In the icon grid the rubber band only starts on empty space: pressing
+        // a card (selected or not) must keep the built-in item drag so files can
+        // be dragged to the other pane. Shift/Ctrl keep the native gestures.
+        const bool onEmptySpace = !index.isValid();
         const bool plainClick = event->modifiers() == Qt::NoModifier;
-        if (!onSelected && plainClick) {
+        if (onEmptySpace && plainClick) {
             setDragEnabled(false);
             m_rubberActive = true;
             m_rubberOriginContent = QPoint(

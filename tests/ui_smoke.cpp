@@ -312,6 +312,24 @@ int main(int argc, char **argv)
             qCritical() << "grid view does not share the selection";
             return 1;
         }
+        // Pressing a card must keep the item drag enabled so files can be
+        // dragged to the other pane (regression: the press used to arm the
+        // rubber band and disable dragging).
+        gridPane->iconView()->clearSelection();
+        QTest::qWait(30);
+        const QModelIndex firstCard = gridPane->iconView()->model()->index(0, 0);
+        const QRect cardRect = gridPane->iconView()->visualRect(firstCard);
+        QTest::mousePress(gridPane->iconView()->viewport(), Qt::LeftButton, Qt::NoModifier,
+                          cardRect.center());
+        QTest::qWait(30);
+        const bool dragStillEnabled = gridPane->iconView()->dragEnabled();
+        QTest::mouseRelease(gridPane->iconView()->viewport(), Qt::LeftButton, Qt::NoModifier,
+                            cardRect.center());
+        QTest::qWait(30);
+        if (!dragStillEnabled) {
+            qCritical() << "grid item press disabled dragging";
+            return 1;
+        }
         gridPane->iconView()->clearSelection();
         QTest::qWait(30);
         gridPane->setGridMode(false);
