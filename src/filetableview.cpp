@@ -159,6 +159,12 @@ void FileTableView::mousePressEvent(QMouseEvent *event)
             setDragEnabled(false);
             m_rubberActive = true;
             m_rubberOrigin = event->pos();
+            // Anchor the band in content coordinates: when the view scrolls
+            // during the drag (edge auto-scroll), the selection start must stay
+            // on the same file instead of following the viewport.
+            m_rubberOriginContent = QPoint(
+                m_rubberOrigin.x() + (horizontalScrollBar() ? horizontalScrollBar()->value() : 0),
+                m_rubberOrigin.y() + (verticalScrollBar() ? verticalScrollBar()->value() : 0));
             if (!m_rubberBand)
                 m_rubberBand = new QRubberBand(QRubberBand::Rectangle, viewport());
             m_rubberBand->setGeometry(QRect(m_rubberOrigin, QSize()));
@@ -183,7 +189,13 @@ void FileTableView::mouseMoveEvent(QMouseEvent *event)
     else if (pos.y() > viewport()->height() - kEdge)
         scroll->setValue(scroll->value() + (pos.y() - (viewport()->height() - kEdge)) / 2);
 
-    m_rubberBand->setGeometry(QRect(m_rubberOrigin, pos).normalized());
+    // Keep the band (and its selection) anchored in content coordinates so the
+    // selection start does not move while the view auto-scrolls.
+    const int hScroll = horizontalScrollBar() ? horizontalScrollBar()->value() : 0;
+    const int vScroll = scroll->value();
+    const QPoint contentPos(pos.x() + hScroll, pos.y() + vScroll);
+    const QRect contentBand = QRect(m_rubberOriginContent, contentPos).normalized();
+    m_rubberBand->setGeometry(contentBand.translated(-hScroll, -vScroll));
     applyRubberBandSelection();
     event->accept();
 }
@@ -194,15 +206,17 @@ void FileTableView::applyRubberBandSelection()
 {
     if (!m_rubberBand || !selectionModel() || !model())
         return;
-    const QRect band = m_rubberBand->geometry();
+    const int hScroll = horizontalScrollBar() ? horizontalScrollBar()->value() : 0;
+    const int vScroll = verticalScrollBar() ? verticalScrollBar()->value() : 0;
+    const QRect contentBand = m_rubberBand->geometry().translated(hScroll, vScroll);
     const QAbstractItemModel *tableModel = model();
     QItemSelection selection;
     for (int row = 0; row < tableModel->rowCount(); ++row) {
-        const int y = rowViewportPosition(row);
         const int height = rowHeight(row);
         if (height <= 0)
             continue;
-        if (y + height < band.top() || y > band.bottom())
+        const int contentTop = rowViewportPosition(row) + vScroll;
+        if (contentTop + height < contentBand.top() || contentTop > contentBand.bottom())
             continue;
         selection.select(tableModel->index(row, 0),
                          tableModel->index(row, tableModel->columnCount() - 1));

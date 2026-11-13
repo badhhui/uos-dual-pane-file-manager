@@ -231,11 +231,15 @@ void MainWindow::buildUi()
     m_splitter->setHandleWidth(1);
     m_left = new FilePane(&IconProvider::instance(), m_splitter);
     m_right = new FilePane(&IconProvider::instance(), m_splitter);
+    const bool gridMode = QSettings().value(QStringLiteral("ui/gridMode"), false).toBool();
+    m_left->setGridMode(gridMode);
+    m_right->setGridMode(gridMode);
     m_splitter->addWidget(m_left);
     m_splitter->addWidget(m_right);
     m_splitter->setStretchFactor(0, 1);
     m_splitter->setStretchFactor(1, 1);
     m_splitter->setSizes(QList<int>() << 590 << 590);
+    setGridMode(gridMode, false);
     contentLayout->addWidget(m_splitter, 1);
     rootLayout->addWidget(content, 1);
     buildTransferBar(rootLayout);
@@ -448,6 +452,21 @@ void MainWindow::buildToolbar()
     m_hiddenButton->setToolTip(QStringLiteral("显示隐藏文件 (Ctrl+H)"));
     connect(m_hiddenButton, &QToolButton::clicked, this, &MainWindow::toggleHiddenFiles);
     layout->addWidget(m_hiddenButton);
+
+    m_gridButton = new QToolButton(m_toolbar);
+    m_gridButton->setObjectName(QStringLiteral("GridButton"));
+    m_gridButton->setIcon(IconProvider::instance().uiIcon(
+        QStringLiteral("grid"), Theme::instance().textSecondary()));
+    m_gridButton->setIconSize(QSize(20, 20));
+    m_gridButton->setFixedSize(34, 34);
+    m_gridButton->setCursor(Qt::PointingHandCursor);
+    m_gridButton->setFocusPolicy(Qt::NoFocus);
+    m_gridButton->setCheckable(true);
+    m_gridButton->setToolTip(QStringLiteral("切换为宫格视图 (Ctrl+G)"));
+    connect(m_gridButton, &QToolButton::toggled, this, [this](bool checked) {
+        setGridMode(checked);
+    });
+    layout->addWidget(m_gridButton);
     layout->addStretch(1);
 
     m_searchButton = new QToolButton(m_toolbar);
@@ -1007,6 +1026,9 @@ void MainWindow::buildShortcuts()
     addShortcut(QKeySequence(QStringLiteral("Ctrl+D")), [this]() { toggleBookmark(); });
     addShortcut(QKeySequence(QStringLiteral("Ctrl+H")), [this]() { toggleHiddenFiles(); });
     addShortcut(QKeySequence(QStringLiteral("Ctrl+N")), [this]() { openNewWindow(); });
+    addShortcut(QKeySequence(QStringLiteral("Ctrl+G")), [this]() {
+        setGridMode(m_gridButton && !m_gridButton->isChecked());
+    });
     addShortcut(QKeySequence(Qt::ALT | Qt::Key_Left), [this]() { navigateBack(); });
     addShortcut(QKeySequence(Qt::ALT | Qt::Key_Right), [this]() { navigateForward(); });
     addShortcut(QKeySequence(Qt::ALT | Qt::Key_Up), [this]() { navigateUp(); });
@@ -1134,6 +1156,10 @@ void MainWindow::updateToolbarIcons()
     updateBookmarkButton();
     updateHiddenButton();
     updateViewModeButton();
+    if (m_gridButton)
+        m_gridButton->setIcon(IconProvider::instance().uiIcon(
+            m_gridButton->isChecked() ? QStringLiteral("list") : QStringLiteral("grid"),
+            Theme::instance().textSecondary()));
     if (m_transferBar) {
         if (QLabel *icon = m_transferBar->findChild<QLabel *>(QStringLiteral("TransferIcon")))
             icon->setPixmap(IconProvider::instance().uiIcon(
@@ -1250,9 +1276,31 @@ void MainWindow::revealPath(const QString &path)
     m_active->revealPath(info.absoluteFilePath());
 }
 
+void MainWindow::setGridMode(bool grid, bool persist)
+{
+    if (m_left)
+        m_left->setGridMode(grid);
+    if (m_right)
+        m_right->setGridMode(grid);
+    if (m_gridButton) {
+        QSignalBlocker blocker(m_gridButton);
+        m_gridButton->setChecked(grid);
+        m_gridButton->setIcon(IconProvider::instance().uiIcon(
+            grid ? QStringLiteral("list") : QStringLiteral("grid"),
+            Theme::instance().textSecondary()));
+        m_gridButton->setToolTip(grid ? QStringLiteral("切换为列表视图 (Ctrl+G)")
+                                      : QStringLiteral("切换为宫格视图 (Ctrl+G)"));
+    }
+    if (persist) {
+        QSettings settings;
+        settings.setValue(QStringLiteral("ui/gridMode"), grid);
+    }
+    if (m_active)
+        m_active->focusView();
+}
+
 void MainWindow::setSinglePane(bool single, bool persist)
 {
-
     if (!m_left || !m_right)
         return;
     m_singlePane = single;

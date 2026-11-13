@@ -10,13 +10,16 @@
 
 class DirectoryModel;
 class FileHeaderView;
+class FileIconView;
 class FileRowDelegate;
 class FileTableView;
 class IconProvider;
+class QAbstractItemView;
 class QLabel;
 class QModelIndex;
 class QMouseEvent;
 class QPoint;
+class QStackedWidget;
 class QTableView;
 class QToolButton;
 class QVBoxLayout;
@@ -27,6 +30,7 @@ class QFileSystemWatcher;
 class QTimer;
 class QLineEdit;
 class QComboBox;
+class QListView;
 class QWidget;
 
 class FilePane : public QFrame
@@ -75,6 +79,11 @@ public:
     void openSelected();
     DirectoryModel *directoryModel() const;
     QTableView *tableView() const;
+    QListView *iconView() const;
+    // Switches between the list (table) and icon-grid presentation. Both views
+    // share the model and selection model, so operations stay identical.
+    void setGridMode(bool grid);
+    bool isGridMode() const;
 
     void showContextMenuAt(const QPoint &globalPos);
     void flashClipboardFeedback(bool cut);
@@ -134,10 +143,15 @@ private:
     void stopPendingReveal();
     void toggleFolderDisclosure(const QString &path);
     void hideSearchBar();
+    QAbstractItemView *currentView() const;
+    void selectRowInCurrentView(int row);
 
     IconProvider *m_icons;
     DirectoryModel *m_model;
     FileTableView *m_view;
+    FileIconView *m_grid = nullptr;
+    QStackedWidget *m_viewStack = nullptr;
+    bool m_gridMode = false;
     FileHeaderView *m_header;
     FileRowDelegate *m_delegate;
     QFrame *m_headerFrame;

@@ -35,8 +35,11 @@ private:
     bool m_dropActive = false;
     // Rubber-band (marquee) selection state. Pressing on an unselected row or
     // empty space starts a band; pressing on an already selected row keeps the
-    // built-in item drag for moving files to the other pane.
+    // built-in item drag for moving files to the other pane. The band origin is
+    // tracked in content coordinates so auto-scrolling during a drag does not
+    // move the selection anchor.
     QRubberBand *m_rubberBand = nullptr;
     QPoint m_rubberOrigin;
+    QPoint m_rubberOriginContent;
     bool m_rubberActive = false;
 };

@@ -4,6 +4,7 @@
 #include "desktopentry.h"
 #include "filedelegate.h"
 #include "fileheaderview.h"
+#include "fileiconview.h"
 #include "filetableview.h"
 #include "formatters.h"
 #include "iconprovider.h"
@@ -39,6 +40,7 @@
 #include <QResizeEvent>
 #include <QScrollBar>
 #include <QSignalBlocker>
+#include <QStackedWidget>
 #include <QTimer>
 #include <QTableView>
 #include <QToolButton>
@@ -204,6 +206,16 @@ void FilePane::buildUi()
     m_delegate = new FileRowDelegate(this);
     m_view->setItemDelegate(m_delegate);
     m_view->setModel(m_model);
+    m_grid = new FileIconView(this);
+    m_grid->setModel(m_model);
+    // Share the selection model so both presentations always show the same
+    // selection and every operation (copy, delete, reveal...) keeps working.
+    if (QItemSelectionModel *sharedSelection = m_view->selectionModel())
+        m_grid->setSelectionModel(sharedSelection);
+    m_viewStack = new QStackedWidget(this);
+    m_viewStack->setObjectName(QStringLiteral("FileViewStack"));
+    m_viewStack->addWidget(m_view);
+    m_viewStack->addWidget(m_grid);
     m_header->setSectionResizeMode(DirectoryModel::NameColumn, QHeaderView::Interactive);
     m_header->setSectionResizeMode(DirectoryModel::SizeColumn, QHeaderView::Interactive);
     m_header->setSectionResizeMode(DirectoryModel::DateColumn, QHeaderView::Interactive);
@@ -213,39 +225,44 @@ void FilePane::buildUi()
     m_header->setSortIndicator(DirectoryModel::NameColumn, Qt::AscendingOrder);
     m_header->setSortIndicatorShown(true);
     m_view->installEventFilter(this);
+    m_grid->installEventFilter(this);
     m_header->installEventFilter(this);
-    layout->addWidget(m_view, 1);
+    layout->addWidget(m_viewStack, 1);
 
-    auto *deleteShortcut = new QShortcut(QKeySequence::Delete, m_view);
-    deleteShortcut->setContext(Qt::WidgetWithChildrenShortcut);
-    connect(deleteShortcut, &QShortcut::activated, this, [this]() {
-        emit activationRequested(this);
-        emit deleteRequested(this);
-    });
-    auto *renameShortcut = new QShortcut(QKeySequence(Qt::Key_F2), m_view);
-    renameShortcut->setContext(Qt::WidgetWithChildrenShortcut);
-    connect(renameShortcut, &QShortcut::activated, this, [this]() {
-        emit activationRequested(this);
-        emit renameRequested(this);
-    });
-    auto *copyShortcut = new QShortcut(QKeySequence::Copy, this);
-    copyShortcut->setContext(Qt::WidgetWithChildrenShortcut);
-    connect(copyShortcut, &QShortcut::activated, this, [this]() {
-        emit activationRequested(this);
-        emit copyRequested(this);
-    });
-    auto *cutShortcut = new QShortcut(QKeySequence::Cut, this);
-    cutShortcut->setContext(Qt::WidgetWithChildrenShortcut);
-    connect(cutShortcut, &QShortcut::activated, this, [this]() {
-        emit activationRequested(this);
-        emit cutRequested(this);
-    });
-    auto *pasteShortcut = new QShortcut(QKeySequence::Paste, this);
-    pasteShortcut->setContext(Qt::WidgetWithChildrenShortcut);
-    connect(pasteShortcut, &QShortcut::activated, this, [this]() {
-        emit activationRequested(this);
-        emit pasteRequested(this);
-    });
+    auto addViewShortcuts = [this](QWidget *view) {
+        auto *deleteShortcut = new QShortcut(QKeySequence::Delete, view);
+        deleteShortcut->setContext(Qt::WidgetWithChildrenShortcut);
+        connect(deleteShortcut, &QShortcut::activated, this, [this]() {
+            emit activationRequested(this);
+            emit deleteRequested(this);
+        });
+        auto *renameShortcut = new QShortcut(QKeySequence(Qt::Key_F2), view);
+        renameShortcut->setContext(Qt::WidgetWithChildrenShortcut);
+        connect(renameShortcut, &QShortcut::activated, this, [this]() {
+            emit activationRequested(this);
+            emit renameRequested(this);
+        });
+        auto *copyShortcut = new QShortcut(QKeySequence::Copy, view);
+        copyShortcut->setContext(Qt::WidgetWithChildrenShortcut);
+        connect(copyShortcut, &QShortcut::activated, this, [this]() {
+            emit activationRequested(this);
+            emit copyRequested(this);
+        });
+        auto *cutShortcut = new QShortcut(QKeySequence::Cut, view);
+        cutShortcut->setContext(Qt::WidgetWithChildrenShortcut);
+        connect(cutShortcut, &QShortcut::activated, this, [this]() {
+            emit activationRequested(this);
+            emit cutRequested(this);
+        });
+        auto *pasteShortcut = new QShortcut(QKeySequence::Paste, view);
+        pasteShortcut->setContext(Qt::WidgetWithChildrenShortcut);
+        connect(pasteShortcut, &QShortcut::activated, this, [this]() {
+            emit activationRequested(this);
+            emit pasteRequested(this);
+        });
+    };
+    addViewShortcuts(m_view);
+    addViewShortcuts(m_grid);
     connect(m_view, &FileTableView::copyToOtherRequested, this, [this]() {
         emit activationRequested(this);
         emit copyToOtherPaneRequested(this);
@@ -282,20 +299,22 @@ void FilePane::buildUi()
 
     connect(m_view, &QTableView::doubleClicked, this, &FilePane::onDoubleClicked);
     connect(m_view, &QTableView::clicked, this, [this]() { emit activationRequested(this); });
-    connect(m_view, &QTableView::customContextMenuRequested, this, [this](const QPoint &pos) {
-        const QModelIndex hit = m_view->indexAt(pos);
+    auto handleContextMenu = [this](QAbstractItemView *view, const QPoint &pos) {
+        const QModelIndex hit = view->indexAt(pos);
         if (hit.isValid()) {
-            if (!m_view->selectionModel()->isSelected(hit)) {
-                m_view->selectionModel()->select(
+            if (!view->selectionModel()->isSelected(hit)) {
+                view->selectionModel()->select(
                     hit, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
-                m_view->setCurrentIndex(hit);
+                view->setCurrentIndex(hit);
             }
         } else {
-            m_view->clearSelection();
+            view->clearSelection();
         }
         emit activationRequested(this);
-        emit contextMenuRequested(this, m_view->viewport()->mapToGlobal(pos));
-    });
+        emit contextMenuRequested(this, view->viewport()->mapToGlobal(pos));
+    };
+    connect(m_view, &QTableView::customContextMenuRequested, this,
+            [this, handleContextMenu](const QPoint &pos) { handleContextMenu(m_view, pos); });
     connect(m_view, &FileTableView::previewRequested, this, [this]() {
         const QModelIndex current = m_view->currentIndex();
         if (!current.isValid())
@@ -314,6 +333,35 @@ void FilePane::buildUi()
             return;
         emit activationRequested(this);
         emit dropTransferRequested(paths, m_path, action == Qt::MoveAction);
+    });
+    // Icon-grid view mirrors the list view behaviours.
+    connect(m_grid, &QListView::doubleClicked, this, &FilePane::onDoubleClicked);
+    connect(m_grid, &QListView::clicked, this, [this]() { emit activationRequested(this); });
+    connect(m_grid, &QListView::customContextMenuRequested, this,
+            [this, handleContextMenu](const QPoint &pos) { handleContextMenu(m_grid, pos); });
+    connect(m_grid, &FileIconView::previewRequested, this, [this]() {
+        const QModelIndex current = m_grid->currentIndex();
+        if (!current.isValid())
+            return;
+        FileEntry entry;
+        if (!m_model->entryAt(current.row(), &entry))
+            return;
+        emit activationRequested(this);
+        emit previewRequested(this, entry.path);
+    });
+    connect(m_grid, &FileIconView::filesDropped, this,
+            [this](const QStringList &paths, Qt::DropAction action) {
+        if (paths.isEmpty() || m_path.isEmpty())
+            return;
+        emit activationRequested(this);
+        emit dropTransferRequested(paths, m_path, action == Qt::MoveAction);
+    });
+    connect(m_grid, &FileIconView::copyToOtherRequested, this, [this]() {
+        emit activationRequested(this);
+        emit copyToOtherPaneRequested(this);
+    });
+    connect(m_grid, &QAbstractItemView::pressed, this, [this]() {
+        stopPendingReveal();
     });
     connect(m_header, &QHeaderView::sectionClicked, this, &FilePane::onHeaderClicked);
     connect(m_header, &QHeaderView::sectionClicked, this, [this]() { emit activationRequested(this); });
@@ -506,7 +554,8 @@ void FilePane::captureRefreshState()
 {
     m_restorePaths = selectedPaths();
     m_restoreCurrent = m_view->currentIndex().data(Qt::UserRole).toString();
-    m_restoreScroll = m_view->verticalScrollBar() ? m_view->verticalScrollBar()->value() : -1;
+    m_restoreScroll = currentView()->verticalScrollBar()
+        ? currentView()->verticalScrollBar()->value() : -1;
 }
 
 void FilePane::restoreRefreshState()
@@ -531,10 +580,10 @@ void FilePane::restoreRefreshState()
         const QModelIndex current = m_model->index(currentRow, DirectoryModel::NameColumn);
         m_view->setCurrentIndex(current);
         if (selection.isEmpty())
-            m_view->scrollTo(current, QAbstractItemView::EnsureVisible);
+            currentView()->scrollTo(current, QAbstractItemView::EnsureVisible);
     }
-    if (m_restoreScroll >= 0 && m_view->verticalScrollBar())
-        m_view->verticalScrollBar()->setValue(m_restoreScroll);
+    if (m_restoreScroll >= 0 && currentView()->verticalScrollBar())
+        currentView()->verticalScrollBar()->setValue(m_restoreScroll);
     m_restorePaths.clear();
     m_restoreCurrent.clear();
     m_restoreScroll = -1;
@@ -606,7 +655,7 @@ void FilePane::endSearch()
     hideSearchBar();
     m_model->setDirectory(m_path, true);
     updateFooter();
-    m_view->setFocus();
+    currentView()->setFocus();
 }
 
 bool FilePane::isSearching() const
@@ -638,7 +687,7 @@ void FilePane::revealPath(const QString &path)
         if (!m_pendingRevealPath.isEmpty() && m_revealTimer)
             m_revealTimer->start();
     } else {
-        m_view->setFocus();
+        currentView()->setFocus();
     }
 }
 
@@ -676,19 +725,19 @@ void FilePane::selectPendingReveal()
         // reveal resets the model and clears the selection, so keep applying
         // it until it holds steady.
         m_view->selectionModel()->clearSelection();
-        m_view->selectRow(row);
+        selectRowInCurrentView(row);
         m_view->setCurrentIndex(index);
-        m_view->scrollTo(index, QAbstractItemView::PositionAtCenter);
+        currentView()->scrollTo(index, QAbstractItemView::PositionAtCenter);
         m_view->selectionModel()->select(index, QItemSelectionModel::Select
                                                     | QItemSelectionModel::Rows);
         m_revealStableTicks = 0;
     } else if (++m_revealStableTicks >= 15) {
         // Selection has held steady for ~1.8s — stop re-asserting.
         stopPendingReveal();
-        m_view->setFocus();
+        currentView()->setFocus();
         return;
     }
-    m_view->setFocus();
+    currentView()->setFocus();
     if (m_revealTimer)
         m_revealTimer->start();
 }
@@ -739,11 +788,11 @@ void FilePane::toggleFolderDisclosure(const QString &path)
     const int currentRow = m_model->rowForPath(path);
     if (currentRow >= 0) {
         const QModelIndex index = m_model->index(currentRow, DirectoryModel::NameColumn);
-        m_view->selectRow(currentRow);
+        selectRowInCurrentView(currentRow);
         m_view->setCurrentIndex(index);
-        m_view->scrollTo(index, QAbstractItemView::EnsureVisible);
+        currentView()->scrollTo(index, QAbstractItemView::EnsureVisible);
     }
-    m_view->setFocus();
+    currentView()->setFocus();
 }
 
 void FilePane::showContentSearchRequirement(const WssScopeStatus &status)
@@ -963,7 +1012,7 @@ void FilePane::setSearchFilter(const QString &text)
 
 void FilePane::focusView()
 {
-    m_view->setFocus(Qt::OtherFocusReason);
+    currentView()->setFocus(Qt::OtherFocusReason);
     emit activationRequested(this);
 }
 
@@ -982,6 +1031,55 @@ DirectoryModel *FilePane::directoryModel() const
 QTableView *FilePane::tableView() const
 {
     return m_view;
+}
+
+QListView *FilePane::iconView() const
+{
+    return m_grid;
+}
+
+QAbstractItemView *FilePane::currentView() const
+{
+    return m_gridMode ? static_cast<QAbstractItemView *>(m_grid)
+                      : static_cast<QAbstractItemView *>(m_view);
+}
+
+void FilePane::selectRowInCurrentView(int row)
+{
+    if (row < 0 || !m_view->selectionModel())
+        return;
+    const QModelIndex index = m_model->index(row, DirectoryModel::NameColumn);
+    m_view->selectionModel()->select(index, QItemSelectionModel::Select
+                                             | QItemSelectionModel::Rows);
+}
+
+void FilePane::setGridMode(bool grid)
+{
+    if (m_gridMode == grid)
+        return;
+    if (!m_grid || !m_viewStack)
+        return;
+    // Carry the scroll position across presentations for a smooth switch.
+    QAbstractItemView *from = currentView();
+    QAbstractItemView *to = grid ? static_cast<QAbstractItemView *>(m_grid)
+                                 : static_cast<QAbstractItemView *>(m_view);
+    const QModelIndex current = m_view->currentIndex();
+    const int scroll = from->verticalScrollBar() ? from->verticalScrollBar()->value() : -1;
+    m_gridMode = grid;
+    m_viewStack->setCurrentWidget(grid ? static_cast<QWidget *>(m_grid)
+                                       : static_cast<QWidget *>(m_view));
+    if (current.isValid())
+        to->scrollTo(current, QAbstractItemView::PositionAtCenter);
+    else if (scroll >= 0 && to->verticalScrollBar())
+        to->verticalScrollBar()->setValue(scroll);
+    updateColumnWidths();
+    if (isVisible())
+        to->setFocus(Qt::OtherFocusReason);
+}
+
+bool FilePane::isGridMode() const
+{
+    return m_gridMode;
 }
 
 void FilePane::showContextMenuAt(const QPoint &globalPos)
@@ -1035,10 +1133,11 @@ void FilePane::mousePressEvent(QMouseEvent *event)
 
 bool FilePane::eventFilter(QObject *watched, QEvent *event)
 {
-    if (watched == m_view || watched == m_header) {
+    if (watched == m_view || watched == m_grid || watched == m_header) {
         if (event->type() == QEvent::FocusIn) {
             emit activationRequested(this);
-        } else if (watched == m_view && event->type() == QEvent::KeyPress) {
+        } else if ((watched == m_view || watched == m_grid)
+                   && event->type() == QEvent::KeyPress) {
             QKeyEvent *key = static_cast<QKeyEvent *>(event);
             if (key->key() == Qt::Key_Return || key->key() == Qt::Key_Enter) {
                 openSelected();

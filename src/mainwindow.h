@@ -51,6 +51,7 @@ public:
     FilePane *rightPane() const;
     FilePane *activePane() const;
     void revealPath(const QString &path);
+    void setGridMode(bool grid, bool persist = true);
     void extractArchive(const QString &archivePath);
     void compressSelection();
 
@@ -145,6 +146,7 @@ private:
     QToolButton *m_viewModeButton = nullptr;
     QToolButton *m_bookmarkButton = nullptr;
     QToolButton *m_hiddenButton = nullptr;
+    QToolButton *m_gridButton = nullptr;
     QToolButton *m_newWindowButton = nullptr;
     QToolButton *m_searchButton = nullptr;
     QTimer *m_deviceTimer = nullptr;

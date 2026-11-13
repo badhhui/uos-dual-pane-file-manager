@@ -36,6 +36,8 @@
 #include <QPushButton>
 #include <QTimer>
 #include <QTableView>
+#include <QListView>
+#include <QScrollBar>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
@@ -239,6 +241,86 @@ int main(int argc, char **argv)
         QTest::qWait(30);
     }
 
+    // Band anchor regression: scrolling during the drag must not move the
+    // selection start (previously the first row dropped out of the band).
+    {
+        for (int i = 0; i < 40; ++i) {
+            QFile scrollFile(leftDir + QStringLiteral("/zz-scroll-%1.txt").arg(i, 2, 10, QChar('0')));
+            if (!scrollFile.open(QIODevice::WriteOnly) || scrollFile.write("x\n") != 2) {
+                qCritical() << "cannot create scroll fixture" << i;
+                return 1;
+            }
+            scrollFile.close();
+        }
+        QTableView *scrollView = window.leftPane()->tableView();
+        if (!waitFor([&window]() {
+                return window.leftPane()->directoryModel()->rowCount() >= 40;
+            }, 5000)) {
+            qCritical() << "scroll fixtures did not appear";
+            return 1;
+        }
+        scrollView->clearSelection();
+        QTest::qWait(30);
+        QTest::mousePress(scrollView->viewport(), Qt::LeftButton, Qt::NoModifier, QPoint(30, 10));
+        QTest::qWait(20);
+        auto sendMove = [scrollView](int y) {
+            QMouseEvent moveEvent(QEvent::MouseMove, QPoint(30, y),
+                                  scrollView->viewport()->mapToGlobal(QPoint(30, y)),
+                                  Qt::NoButton, Qt::LeftButton, Qt::NoModifier);
+            QApplication::sendEvent(scrollView->viewport(), &moveEvent);
+        };
+        sendMove(120);
+        QTest::qWait(20);
+        // Simulate the view scrolling while the drag is still in progress.
+        scrollView->verticalScrollBar()->setValue(300);
+        QTest::qWait(20);
+        sendMove(120);
+        QTest::qWait(20);
+        bool firstRowSelected = false;
+        for (const QModelIndex &index : scrollView->selectionModel()->selectedRows(0)) {
+            if (index.row() == 0)
+                firstRowSelected = true;
+        }
+        QTest::mouseRelease(scrollView->viewport(), Qt::LeftButton, Qt::NoModifier, QPoint(30, 120));
+        QTest::qWait(30);
+        if (!firstRowSelected) {
+            qCritical() << "band anchor moved while scrolling";
+            return 1;
+        }
+        scrollView->verticalScrollBar()->setValue(0);
+        scrollView->clearSelection();
+        QTest::qWait(30);
+    }
+
+    // Icon-grid presentation: same selection model, so operations keep working.
+    {
+        FilePane *gridPane = window.leftPane();
+        gridPane->setGridMode(true);
+        QTest::qWait(60);
+        if (!gridPane->iconView() || !gridPane->iconView()->isVisible()) {
+            qCritical() << "grid view not visible after switching";
+            return 1;
+        }
+        if (gridPane->tableView()->isVisible()) {
+            qCritical() << "table view still visible in grid mode";
+            return 1;
+        }
+        selectRowExplicit(gridPane->tableView(), 0);
+        QTest::qWait(30);
+        if (gridPane->iconView()->selectionModel()->selectedRows(0).size() < 1
+            || !gridPane->hasSelection()) {
+            qCritical() << "grid view does not share the selection";
+            return 1;
+        }
+        gridPane->iconView()->clearSelection();
+        QTest::qWait(30);
+        gridPane->setGridMode(false);
+        QTest::qWait(60);
+        if (!gridPane->tableView()->isVisible() || gridPane->iconView()->isVisible()) {
+            qCritical() << "list view not restored after switching back";
+            return 1;
+        }
+    }
     // Multiple windows: openNewWindow creates an independent, closable window.
     {
         MainWindow *extra = MainWindow::openNewWindow(leftDir);

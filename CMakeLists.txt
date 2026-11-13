@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-project(DualPaneFileManager VERSION 2.10.1 LANGUAGES CXX)
+project(DualPaneFileManager VERSION 2.11.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -21,6 +21,7 @@ set(UI_SOURCES
     src/filepane.cpp
     src/filedelegate.cpp
     src/filetableview.cpp
+    src/fileiconview.cpp
     src/fileheaderview.cpp
     src/directorymodel.cpp
     src/iconprovider.cpp
